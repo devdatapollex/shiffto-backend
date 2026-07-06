@@ -3,9 +3,6 @@ dist
 .env
 .env.test
 
-/generated/prisma
-
 /.idea
-/app/generated/prisma
 
 /src/generated/prisma
