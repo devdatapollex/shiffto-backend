@@ -14,9 +14,6 @@
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run typecheck"
   },
-  "prisma": {
-    "schema": "./prisma/schema"
-  },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
@@ -27,9 +24,12 @@
     ]
   },
   "dependencies": {
+    "@better-auth/prisma-adapter": "^1.6.23",
     "@prisma/adapter-pg": "^7.3.0",
-    "@prisma/client": "^7.3.0",
+    "@prisma/client": "^7.8.0",
+    "auth": "^1.6.23",
     "bcryptjs": "^3.0.3",
+    "better-auth": "^1.6.23",
     "cloudinary": "^2.9.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -46,6 +46,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
@@ -53,9 +54,11 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.9",
     "@types/pg": "^8.16.0",
-    "prisma": "^7.3.0",
+    "globals": "^17.7.0",
+    "prisma": "^7.8.0",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.23.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.62.1"
   }
 }
