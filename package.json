@@ -10,8 +10,9 @@
     "start": "tsx src/server.ts",
     "prepare": "husky",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check": "bun run lint && bun run typecheck"
   },
   "prisma": {
     "schema": "./prisma/schema"

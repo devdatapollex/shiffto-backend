@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+set -e
+
+FILES_CHANGED=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)
+
+if echo "$FILES_CHANGED" | grep -q "^bun.lock"; then
+  echo "📦 Installing dependencies..."
+  npm install
+fi
+
+if echo "$FILES_CHANGED" | grep -q "^prisma/schema.prisma"; then
+  echo "🛠️ Prisma schema changed. Generating client..."
+  npx prisma generate
+fi
+
+echo "✅ Done."
