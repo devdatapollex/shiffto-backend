@@ -1,8 +1,7 @@
 import multer from "multer";
 import path from "path";
 import {v2 as cloudinary} from 'cloudinary';
-import config from "../../config";
-import { file } from '../../../node_modules/zod/v4/classic/schemas';
+import config from "../../config/index";
 
 cloudinary.config({
   cloud_name: config.cloudinary.cloud_name,
@@ -22,10 +21,10 @@ const uploadToCloudinary = async (file: Express.Multer.File) => {
 }
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: function (_req, _file, cb) {
     cb(null, path.join(process.cwd(), 'uploads'))
   },
-  filename: function (req, file, cb) {
+  filename: function (_req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
     cb(null, file.fieldname + '-' + uniqueSuffix)
   }

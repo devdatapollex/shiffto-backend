@@ -1,6 +1,6 @@
 import jwt, { Secret } from 'jsonwebtoken';
-import ApiError from '../errors/ApiError';
 import httpStatus from 'http-status';
+import ApiError from "../errors/ApiError";
 
 const generateToken = (payload: any, secret: Secret, expiresIn: string | number): string => {
     const token = jwt.sign(payload, secret, { algorithm: 'HS256', expiresIn } as jwt.SignOptions);

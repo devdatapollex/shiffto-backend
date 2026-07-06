@@ -1,8 +1,8 @@
-import { Prisma } from "@prisma/client";
 import { NextFunction, Request, Response } from "express"
 import httpStatus from "http-status"
+import {Prisma} from "@prisma/client";
 
-const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+const globalErrorHandler = (err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.log(err)
     let statusCode: number = err.statusCode || httpStatus.INTERNAL_SERVER_ERROR;
     let success = false;
