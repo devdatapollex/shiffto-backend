@@ -1,10 +1,10 @@
 import { UserStatus } from "@prisma/client";
-import prisma from "../../shared/prisma";
 import bcrypt from 'bcryptjs';
-import config from "../../../config";
-import { JwtHelper } from "../../helper/jwtHelper";
-import ApiError from "../../errors/ApiError";
 import httpStatus from "http-status";
+import ApiError from "../../errors/ApiError";
+import {JwtHelper} from "../../helper/jwtHelper";
+import config from "../../../config/index";
+import prisma from "../../shared/prisma";
 
 const login = async(payload:{email: string, password: string}) => {
     const user  = await prisma.user.findUniqueOrThrow({

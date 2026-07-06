@@ -1,9 +1,9 @@
-import catchAsync from "../../shared/catchAsync";
 import { NextFunction, Request, Response } from "express";
-import { userService } from "./user.service";
+import catchAsync from "../../shared/catchAsync";
 import sendResponse from "../../shared/sendResponse";
+import {userService} from "./user.service";
+import {userFilterableFields} from "./user.constant";
 import pick from "../../helper/pick";
-import { userFilterableFields } from "./user.constant";
 
 const createPatient = catchAsync(async (req: Request, res: Response) => {
     const result = await userService.createPatient(req)
