@@ -7,10 +7,23 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "tsx src/server.ts"
+    "start": "tsx src/server.ts",
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
     "schema": "./prisma/schema"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,scss,md,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.3.0",
@@ -20,11 +33,15 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "eslint": "^10.6.0",
     "express": "^5.1.0",
     "http-status": "^2.1.0",
+    "husky": "^9.1.7",
     "jsonwebtoken": "^9.0.3",
+    "lint-staged": "^17.0.8",
     "multer": "^2.0.2",
     "pg": "^8.17.2",
+    "prettier": "^3.9.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
