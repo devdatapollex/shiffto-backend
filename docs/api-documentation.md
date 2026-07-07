@@ -32,6 +32,7 @@ Existing request example:
 
 - `api_collections/Default/Sign Up.yml`
 - `POST http://localhost:5000/api/auth/sign-up/email`
+- Better Auth email sign-up/sign-in requests must include an `Origin` header, such as `Origin: http://localhost:3000`. Browsers send this automatically, but Bruno/API clients need it configured explicitly.
 
 ## Update Rules
 
