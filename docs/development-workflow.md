@@ -36,11 +36,13 @@ Before saying work is complete, run the relevant verification commands and repor
 
 Current available commands:
 
+- `npm test`
+- `npm run test:watch`
 - `npm run lint`
 - `npm run typecheck`
 - `npm run build`
 
-The current `check` script uses `bun run lint && bun run typecheck`. Use it only when Bun is available in the environment.
+The current `check` script uses `npm run lint && npm run typecheck`.
 
 ## Git Standard
 

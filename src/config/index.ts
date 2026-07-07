@@ -3,14 +3,40 @@ import path from "path";
 
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 
-export default {
-  node_env: process.env.NODE_ENV,
-  port: process.env.PORT,
-  database_url: process.env.DATABASE_URL,
-  cloudinary: {
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  },
-  jwt_secret: process.env.JWT_SECRET,
+type EnvInput = Record<string, string | undefined>;
+
+export const createConfig = (env: EnvInput) => {
+  if (!env.DATABASE_URL) {
+    throw new Error(
+      "Invalid environment configuration: DATABASE_URL is required",
+    );
+  }
+
+  const port = Number(env.PORT ?? 5000);
+
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error(
+      "Invalid environment configuration: PORT must be a positive integer",
+    );
+  }
+
+  return {
+    node_env: env.NODE_ENV ?? "development",
+    port,
+    database_url: env.DATABASE_URL,
+    frontend_url: env.FRONTEND_URL ?? "http://localhost:3000",
+    r2: {
+      account_id: env.CLOUDFLARE_ACCOUNT_ID ?? "",
+      access_key_id: env.R2_ACCESS_KEY_ID ?? "",
+      secret_access_key: env.R2_SECRET_ACCESS_KEY ?? "",
+      public_bucket: env.R2_PUBLIC_BUCKET ?? "",
+      public_url: env.R2_PUBLIC_URL ?? "",
+      private_bucket: env.R2_PRIVATE_BUCKET ?? "",
+    },
+    jwt_secret: env.JWT_SECRET ?? "",
+  };
 };
+
+const config = createConfig(process.env);
+
+export default config;

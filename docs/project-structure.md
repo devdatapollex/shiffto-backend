@@ -9,6 +9,7 @@ This project is an early-stage TypeScript backend. Document the current shape be
 - Auth: Better Auth with Prisma adapter.
 - Database: PostgreSQL through Prisma and `@prisma/adapter-pg`.
 - Validation: Zod middleware exists.
+- Tests: Vitest with Supertest for HTTP request-level tests.
 - API client collection: OpenCollection YAML under `api_collections/Default` with Bruno extension metadata.
 
 ## Source Layout
@@ -17,8 +18,9 @@ This project is an early-stage TypeScript backend. Document the current shape be
 - `src/app.ts` is the app composition module. It wires CORS, Better Auth, parsers, API routes, root response, error handling, and 404 handling.
 - `src/config/index.ts` loads environment configuration.
 - `src/app/routes/index.ts` is the `/api/v1` route registry.
+- `src/*.test.ts` contains source-adjacent tests for app-level behavior.
 - `src/app/middlewares/` contains cross-cutting Express middleware.
-- `src/app/lib/` contains shared infrastructure modules and adapters.
+- `src/app/lib/` contains shared infrastructure modules and adapters (Prisma, R2 storage, Better Auth).
 - `src/app/helper/` contains small reusable helper functions.
 - `src/app/errors/` contains application error types.
 - `prisma/` contains Prisma schema files and migrations.
@@ -45,7 +47,7 @@ Use these architecture terms consistently in docs and reviews:
 - Interface: what callers must know to use the module, including inputs, outputs, invariants, errors, ordering, and config.
 - Implementation: the code hidden behind the interface.
 - Seam: where an interface lives and behavior can be changed without editing callers.
-- Adapter: a concrete implementation at a seam, such as Prisma, Better Auth, Cloudinary, or the HTTP server adapter.
+- Adapter: a concrete implementation at a seam, such as Prisma, Better Auth, Cloudflare R2 storage, or the HTTP server adapter.
 - Locality: keeping related behavior, bugs, and changes concentrated.
 - Leverage: giving callers useful behavior through a small interface.
 
@@ -54,10 +56,5 @@ Use these architecture terms consistently in docs and reviews:
 These are known gaps, not established conventions:
 
 - No feature module structure is fully established yet.
-- No test runner or test script is configured yet.
-- Swagger/OpenAPI serving is not wired into the backend yet, although Better Auth has an OpenAPI plugin configured.
-- Environment validation is not yet implemented.
-- CORS origin is currently hardcoded.
-- Some legacy text remains from a prior template.
 
 Address these gaps incrementally when they become relevant to a feature.
