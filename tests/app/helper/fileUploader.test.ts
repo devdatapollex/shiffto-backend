@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../lib/storage", () => ({
+vi.mock("../../../src/app/lib/storage", () => ({
   uploadToPublicBucket: vi.fn((key: string) =>
     Promise.resolve({ key, url: `https://cdn.shiffto.com/${key}` }),
   ),
@@ -11,8 +11,8 @@ vi.mock("../lib/storage", () => ({
   deleteObject: vi.fn(() => Promise.resolve()),
 }));
 
-const { fileUploader } = await import("./fileUploader");
-const storage = await import("../lib/storage");
+const { fileUploader } = await import("../../../src/app/helper/fileUploader");
+const storage = await import("../../../src/app/lib/storage");
 
 describe("fileUploader", () => {
   const mockFile = {

@@ -1,6 +1,6 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import app from "./app";
+import app from "../src/app";
 
 describe("health endpoint", () => {
   it("returns an ok status and timestamp", async () => {

@@ -1,6 +1,6 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import app from "../../app";
+import app from "../../../src/app";
 
 describe("api docs", () => {
   it("serves an OpenAPI spec at /api/docs/openapi.json", async () => {
