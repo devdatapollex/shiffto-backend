@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check": "bun run lint && bun run typecheck"
+    "check": "npm run lint && npm run typecheck"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
