@@ -18,8 +18,8 @@ This project is an early-stage TypeScript backend. Document the current shape be
 - `src/app.ts` is the app composition module. It wires CORS, Better Auth, parsers, API routes, root response, error handling, and 404 handling.
 - `src/config/index.ts` loads environment configuration.
 - `src/app/routes/index.ts` is the `/api/v1` route registry.
-- `src/*.test.ts` contains source-adjacent tests for app-level behavior.
 - `src/app/middlewares/` contains cross-cutting Express middleware.
+- `tests/` mirrors `src/` structure and contains all test files. Tests are kept separate from implementation code — never create `.test.ts` files inside `src/`.
 - `src/app/lib/` contains shared infrastructure modules and adapters (Prisma, R2 storage, Better Auth).
 - `src/app/helper/` contains small reusable helper functions.
 - `src/app/errors/` contains application error types.

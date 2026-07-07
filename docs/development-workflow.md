@@ -29,6 +29,7 @@ For feature or bugfix work:
 - If test infrastructure does not exist, add it as the first small feature before relying on manual checks.
 - Keep tests focused on the public interface of the module.
 - Prefer testing behavior through stable seams instead of testing private implementation details.
+- **Test files must be placed in the `tests/` directory** under a path that mirrors the source file's location under `src/`. Never create test files inside `src/` — implementation and test code must remain in separate directories.
 
 ## Verification Standard
 

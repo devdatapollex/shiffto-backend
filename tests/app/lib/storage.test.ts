@@ -24,7 +24,7 @@ const {
   uploadToPrivateBucket,
   getPresignedUrl,
   deleteObject,
-} = await import("./storage");
+} = await import("../../../src/app/lib/storage");
 
 describe("R2 storage adapter", () => {
   afterEach(() => {

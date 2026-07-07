@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createConfig } from "./index";
+import { createConfig } from "../../src/config/index";
 
 describe("createConfig", () => {
   it("normalizes configured values and defaults", () => {
