@@ -33,15 +33,8 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": [
-    "src/**/*"
-  ],
+  "include": ["src/**/*"],
   /* Only compile code found inside the source directory */
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.spec.ts",
-    "**/*.test.ts"
-  ]
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
   /* Explicitly skip node modules, build folder, and testing files */
 }
