@@ -12,7 +12,7 @@ This backend is early-stage. Before changing code, inspect the current project s
 6. Use `verification-before-completion` before claiming work is complete or fixed.
 7. Use `improve-codebase-architecture` when making structural changes, introducing module seams, or evaluating refactors.
 8. Update the relevant documentation after each meaningful change.
-9. Commit small, significant milestones with meaningful Git commit messages when building features or making notable additions.
+9. Commit each distinct topic as a separate, atomic commit with a meaningful conventional-commit message. Never bundle unrelated changes (e.g. OpenAPI docs, dependency changes, and feature logic) into a single commit — split them into focused commits even if they were developed together.
 
 ## Project References
 
