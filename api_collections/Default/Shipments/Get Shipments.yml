@@ -1,0 +1,15 @@
+info:
+  name: Get Shipments
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{localurl}}/api/v1/shipments"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

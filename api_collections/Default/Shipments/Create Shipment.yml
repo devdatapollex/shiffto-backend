@@ -1,0 +1,36 @@
+info:
+  name: Create Shipment
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/shipments"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "itemName": "Laptop",
+        "weight": 5,
+        "quantity": 2,
+        "description": "A laptop for international shipping",
+        "itemPhotos": [],
+        "instructions": "Handle with care",
+        "fromCountry": "US",
+        "toCountry": "BD",
+        "pricePerKg": 100,
+        "receiverName": "John Doe",
+        "receiverPhone": "+1234567890",
+        "receiverAddress": "123 Main St, City",
+        "categoryId": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
