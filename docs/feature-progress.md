@@ -274,3 +274,41 @@ Notes:
 
 - The script is idempotent — it skips if the admin email already exists.
 - Defaults: admin@shiffto.com / admin123.
+
+## Email OTP Verification During Sign-Up
+
+Status: Completed
+Started: 2026-07-08
+Completed: 2026-07-08
+
+Scope:
+
+- Add OTP-based email verification to the sign-up flow using Better Auth's emailOTP plugin.
+- Auto-send OTP on sign-up. Frontend manually requests OTP via `send-verification-otp` endpoint.
+- Use Nodemailer + SMTP for email delivery.
+
+Completed Work:
+
+- Added `nodemailer` and `@types/nodemailer` dependencies.
+- Added `smtp` config block (`host`, `port`, `user`, `pass`, `from`) to `src/config/index.ts`.
+- Added SMTP environment variables to `.env.example`.
+- Created `src/app/lib/email.ts` with `sendVerificationOTP` — Nodemailer-based OTP sender.
+- Updated `src/app/lib/auth.ts`:
+  - Added `emailOTP` plugin with `overrideDefaultEmailVerification: true` and `sendVerificationOnSignUp: true`.
+  - `requireEmailVerification` is commented out; the frontend triggers verification by calling `POST /api/auth/email-otp/send-verification-otp`.
+- Added tests for config (`smtp` fields), email module (3 tests), and auth plugin presence.
+- Added OpenAPI spec entries for `POST /api/auth/email-otp/send-verification-otp` and `POST /api/auth/email-otp/verify-email`.
+- Added Bruno API collection files: `Send OTP.yml` and `Verify Email.yml`.
+
+Verification:
+
+- `npm test` completed successfully: 21 passing tests across 8 test files.
+- `npm run typecheck` completed successfully.
+- `npm run build` completed successfully.
+- `npm run lint` completed with 0 errors and 4 pre-existing warnings.
+
+Notes:
+
+- The Prisma schema already had the `Verification` model and `emailVerified` Boolean — no migration needed.
+- OTP is stored in the `verification` table (`identifier` = email, `value` = OTP code).
+- The frontend signs up via `POST /api/auth/sign-up/email`, then manually calls `POST /api/auth/email-otp/send-verification-otp` to receive the OTP, then calls `POST /api/auth/email-otp/verify-email` to complete verification.
