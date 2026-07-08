@@ -1,0 +1,20 @@
+model Shipment {
+  id           String   @id @default(uuid(7))
+  itemName     String
+  weight       Float
+  quantity     Int
+  description  String
+  itemPhotos   String[]
+  instructions String
+
+  fromCountry String
+  toCountry   String
+
+  pricePerKg Float
+
+  receiverName    String
+  receiverPhone   String
+  receiverAddress String
+
+  category Category
+}
