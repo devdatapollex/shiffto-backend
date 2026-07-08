@@ -212,3 +212,65 @@ Notes:
 
 - The old `fileUploader.ts` was never imported by any route, so no production callers were affected.
 - Private bucket presigned URLs default to 1-hour expiry, configurable via `getPresignedUrl(key, expiresInSec)`.
+
+## Frontend Auth Alignment
+
+Status: Completed
+Started: 2026-07-08
+Completed: 2026-07-08
+
+Scope:
+
+- Align Better Auth backend configuration with the initialized Next.js frontend auth contract.
+- Add Google OAuth config, trusted frontend origins, shared RBAC permissions, and Admin plugin configuration.
+- Preserve the existing Better Auth OpenAPI plugin.
+- Add Better Auth Admin plugin Prisma schema fields and migration after manual inspection.
+
+Completed Work:
+
+- Added Google OAuth environment config fields to `src/config/index.ts` and `.env.example`.
+- Added Better Auth standard `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` entries to `.env.example`.
+- Added `src/config/permissions.ts` with shared `shipment`, `trip`, `settlement`, and `withdrawal` permissions plus `admin` and `user` roles.
+- Updated `src/app/lib/auth.ts` to use Google social auth, Better Auth `trustedOrigins`, the Admin plugin, and the existing OpenAPI plugin.
+- Added tests for config, permissions, and auth configuration.
+- Added API collection requests for Google social sign-in, session retrieval, and admin permission checks.
+- Updated docs with the frontend auth proxy/trusted-origin expectations and Prisma manual migration handoff.
+- Added Better Auth Admin plugin fields to `prisma/user.prisma` and migration `20260708041238_add_better_auth_admin_fields`.
+
+Verification:
+
+- `npm test` completed successfully: 18 passing tests across 7 test files.
+- `npm run typecheck` completed successfully.
+- `npm run build` completed successfully.
+- `npm run lint` completed with 0 errors and 4 existing warnings in `src/app.ts`, `src/app/middlewares/globalErrorHandler.ts`, and `src/server.ts`.
+- `npx prisma validate` completed successfully; the current schemas at `prisma` are valid.
+- The admin migration SQL was reviewed and only alters the existing `user` and `session` tables.
+
+Notes:
+
+- For Prisma, use Better Auth `generate` only to inspect/generate schema changes, then use Prisma migration commands; do not use Better Auth direct `migrate` for this adapter.
+
+## Admin Seed Script
+
+Status: Completed
+Started: 2026-07-08
+Completed: 2026-07-08
+
+Scope:
+
+- Provide a way to bootstrap the first admin user via a simple CLI script.
+
+Completed Work:
+
+- Created `prisma/seeds/admin.ts` that calls Better Auth Admin plugin's server-side `auth.api.createUser` with `role: "admin"`, so user/account creation follows the active Better Auth configuration.
+- Added `npm run seed:admin` script in `package.json`.
+- Added optional `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` environment variables to `.env.example`.
+
+Verification:
+
+- `npm run typecheck` completed successfully.
+
+Notes:
+
+- The script is idempotent — it skips if the admin email already exists.
+- Defaults: admin@shiffto.com / admin123.
