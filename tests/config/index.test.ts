@@ -14,7 +14,8 @@ describe("createConfig", () => {
       R2_PUBLIC_BUCKET: "shiffto-public",
       R2_PUBLIC_URL: "https://cdn.shiffto.com",
       R2_PRIVATE_BUCKET: "shiffto-private",
-      JWT_SECRET: "jwt-secret",
+      GOOGLE_CLIENT_ID: "google-client-id",
+      GOOGLE_CLIENT_SECRET: "google-client-secret",
     });
 
     expect(config).toEqual({
@@ -30,7 +31,10 @@ describe("createConfig", () => {
         public_url: "https://cdn.shiffto.com",
         private_bucket: "shiffto-private",
       },
-      jwt_secret: "jwt-secret",
+      google: {
+        client_id: "google-client-id",
+        client_secret: "google-client-secret",
+      },
     });
   });
 
@@ -43,6 +47,8 @@ describe("createConfig", () => {
     expect(config.port).toBe(5000);
     expect(config.frontend_url).toBe("http://localhost:3000");
     expect(config.r2.private_bucket).toBe("");
+    expect(config.google.client_id).toBe("");
+    expect(config.google.client_secret).toBe("");
   });
 
   it("throws a readable error when required config is missing", () => {

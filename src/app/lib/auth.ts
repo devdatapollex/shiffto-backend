@@ -1,7 +1,9 @@
-import { betterAuth } from "better-auth/minimal";
+import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import prisma from "./prisma";
-import { openAPI } from "better-auth/plugins";
+import { admin as adminPlugin, openAPI } from "better-auth/plugins";
+import config from "../../config/index";
+import { ac, admin, user } from "../../config/permissions";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -11,10 +13,18 @@ export const auth = betterAuth({
     enabled: true,
   },
   socialProviders: {
-    // github: {
-    //     clientId: process.env.GITHUB_CLIENT_ID as string,
-    //     clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-    // },
+    google: {
+      clientId: config.google.client_id,
+      clientSecret: config.google.client_secret,
+    },
   },
-  plugins: [openAPI()],
+  trustedOrigins: [config.frontend_url],
+  plugins: [
+    adminPlugin({
+      ac,
+      roles: { admin, user },
+      defaultRole: "user",
+    }),
+    openAPI(),
+  ],
 });

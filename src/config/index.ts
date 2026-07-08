@@ -33,7 +33,10 @@ export const createConfig = (env: EnvInput) => {
       public_url: env.R2_PUBLIC_URL ?? "",
       private_bucket: env.R2_PRIVATE_BUCKET ?? "",
     },
-    jwt_secret: env.JWT_SECRET ?? "",
+    google: {
+      client_id: env.GOOGLE_CLIENT_ID ?? "",
+      client_secret: env.GOOGLE_CLIENT_SECRET ?? "",
+    },
   };
 };
 
