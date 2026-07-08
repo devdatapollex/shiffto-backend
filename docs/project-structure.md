@@ -20,7 +20,9 @@ This project is an early-stage TypeScript backend. Document the current shape be
 - `src/config/index.ts` loads environment configuration.
 - `src/config/permissions.ts` defines the Better Auth access-control statements and `admin`/`user` roles shared with the frontend.
 - `src/app/routes/index.ts` is the `/api/v1` route registry.
-- `src/app/middlewares/` contains cross-cutting Express middleware.
+- `src/app/middlewares/` contains cross-cutting Express middleware, including `authGuard` for session/role/verification checks.
+- `src/app/modules/` contains feature modules, each with route → validation → controller → service layers.
+- `src/types/express.d.ts` augments Express `Request` with an optional `user` property.
 - `tests/` mirrors `src/` structure and contains all test files. Tests are kept separate from implementation code — never create `.test.ts` files inside `src/`.
 - `src/app/lib/` contains shared infrastructure modules and adapters (Prisma, R2 storage, Better Auth).
 - `src/app/helper/` contains small reusable helper functions.
@@ -62,3 +64,19 @@ These are known gaps, not established conventions:
 - No feature module structure is fully established yet.
 
 Address these gaps incrementally when they become relevant to a feature.
+
+## Feature Module Convention
+
+Each feature module under `src/app/modules/<module-name>/` follows this file structure:
+
+- `<name>.validation.ts` — Zod schemas for request body validation, consumed by `validateRequest()` middleware.
+- `<name>.service.ts` — Business logic and Prisma database operations. Throws `ApiError` for errors.
+- `<name>.controller.ts` — Thin request handlers: parse input from `req`, call service, return via `sendResponse()`.
+- `<name>.route.ts` — Express `Router` with route definitions, chaining `authGuard()`, `validateRequest()`, and controller functions.
+
+Auth is handled by a single `authGuard(options?)` middleware:
+
+- `authGuard()` — session required, normal users must be email-verified.
+- `authGuard({ adminOnly: true })` — session required, user must have `role: "admin"`.
+
+Modules are registered in `src/app/routes/index.ts` by adding an entry to `moduleRoutes`.

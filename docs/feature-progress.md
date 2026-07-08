@@ -275,6 +275,47 @@ Notes:
 - The script is idempotent — it skips if the admin email already exists.
 - Defaults: admin@shiffto.com / admin123.
 
+## Shipment And Shipment Category Modules
+
+Status: Completed
+Started: 2026-07-08
+Completed: 2026-07-08
+
+Scope:
+
+- Implement shipment and shipment-category CRUD modules following the route → validation → controller → service pattern.
+- Single `authGuard` middleware handling session, email verification for normal users, and optional admin-only restriction.
+- Category constraint validation: weight ≤ maxWeight, quantity ≤ maxQuantity, price ≥ minPrice, price ≤ maxPrice.
+- Users see only their own shipments. Categories are admin-only.
+
+Completed Work:
+
+- Created `src/types/express.d.ts` augmenting Express `Request` with `user` property.
+- Created `src/app/middlewares/authGuard.ts` with TDD: 7 tests verifying session check, verification check, and admin-only mode.
+- Created `src/app/modules/shipment-category/` module with CRUD endpoints (admin-only via `authGuard({ adminOnly: true })`).
+- Created `src/app/modules/shipment/` module with CRUD endpoints (verified users via `authGuard()`).
+- Shipment service validates weight, quantity, pricePerKg against the linked category's constraints on create and update.
+- Updated `src/config/permissions.ts` with `shipmentCategory` resource (admin role only).
+- Updated `src/app/routes/index.ts` registering both modules at `/api/v1/shipments` and `/api/v1/shipment-categories`.
+- Updated `src/generated/prisma/` with regenerated Prisma client including shipment models.
+- Added 21 service-level tests: 8 for shipment-category (CRUD + error cases), 13 for shipment (CRUD, ownership isolation, constraint validation).
+- Updated `docs/project-structure.md` with feature module convention and auth guard documentation.
+- Updated `docs/feature-progress.md` with this entry.
+- Updated OpenAPI spec in `src/app/docs/openapi.ts` with shipment and shipment-category endpoints.
+- Added API collection files in dedicated per-module subfolders: `api_collections/Default/shipment/` and `api_collections/Default/shipment-category/`.
+- Updated `docs/api-documentation.md` with per-module subfolder convention.
+
+Verification:
+
+- `npm test` completed successfully: 51 passing tests across 11 test files.
+- `npm run typecheck` completed successfully.
+- `npm run build` completed successfully.
+
+Notes:
+
+- Auth guard uses Better Auth's `auth.api.getSession()` with `fromNodeHeaders()` from `better-auth/node`.
+- The auth guard does not check `emailVerified` for admin users, allowing unverified admins to manage categories.
+
 ## Email OTP Verification During Sign-Up
 
 Status: Completed

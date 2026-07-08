@@ -52,6 +52,7 @@ For every API feature:
 4. Avoid committing secrets or real credentials.
 5. Keep base URLs local and easy to change.
 6. Update `docs/feature-progress.md` with the documentation work completed.
+7. Organize API collection files in dedicated per-module subfolders under `api_collections/Default/` (e.g., `api_collections/Default/shipment/`, `api_collections/Default/shipment-category/`) for clean organization in API client apps. Reset seq numbers to start from 1 within each subfolder.
 
 ## Route Prefixes
 
