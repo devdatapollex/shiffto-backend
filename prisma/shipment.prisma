@@ -1,3 +1,16 @@
+model ShipmentCategory {
+  id          String     @id @default(uuid(7))
+  name        String
+  slug        String     @unique
+  maxWeight   Float?
+  minPrice    Float
+  maxPrice    Float?
+  maxQuantity Int?
+  shipments   Shipment[]
+
+  @@map("shipment_categories")
+}
+
 model Shipment {
   id           String   @id @default(uuid(7))
   itemName     String
@@ -16,5 +29,11 @@ model Shipment {
   receiverPhone   String
   receiverAddress String
 
-  category Category
+  category   ShipmentCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  @@map("shipments")
 }
