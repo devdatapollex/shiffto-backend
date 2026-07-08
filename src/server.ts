@@ -1,12 +1,15 @@
 import { Server } from "http";
 import app from "./app";
 import config from "./config/index";
+import { verifyEmailTransport } from "./app/lib/email";
 
 async function bootstrap() {
   // This variable will hold our server instance
   let server: Server;
 
   try {
+    await verifyEmailTransport();
+
     // Start the server
     server = app.listen(config.port, () => {
       console.log(`🚀 Server is running on http://localhost:${config.port}`);

@@ -25,6 +25,14 @@ export const createConfig = (env: EnvInput) => {
     port,
     database_url: env.DATABASE_URL,
     frontend_url: env.FRONTEND_URL ?? "http://localhost:3000",
+    smtp: {
+      service: env.SMTP_SERVICE ?? "",
+      host: env.SMTP_HOST ?? "",
+      port: Number(env.SMTP_PORT ?? 587),
+      user: env.SMTP_USER ?? "",
+      pass: env.SMTP_PASS ?? "",
+      from: env.SMTP_FROM ?? "",
+    },
     r2: {
       account_id: env.CLOUDFLARE_ACCOUNT_ID ?? "",
       access_key_id: env.R2_ACCESS_KEY_ID ?? "",
