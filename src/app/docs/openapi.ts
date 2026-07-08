@@ -70,6 +70,75 @@ export const openapiDoc = {
         },
       },
     },
+    "/api/auth/email-otp/send-verification-otp": {
+      post: {
+        summary: "Send a verification OTP to the user's email",
+        operationId: "authEmailOtpSendVerification",
+        tags: ["Auth"],
+        parameters: [
+          {
+            name: "Origin",
+            in: "header",
+            required: true,
+            schema: { type: "string", example: config.frontend_url },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "type"],
+                properties: {
+                  email: { type: "string", format: "email" },
+                  type: {
+                    type: "string",
+                    enum: ["email-verification", "sign-in", "forget-password"],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "OTP sent successfully" },
+        },
+      },
+    },
+    "/api/auth/email-otp/verify-email": {
+      post: {
+        summary: "Verify email address with OTP",
+        operationId: "authEmailOtpVerifyEmail",
+        tags: ["Auth"],
+        parameters: [
+          {
+            name: "Origin",
+            in: "header",
+            required: true,
+            schema: { type: "string", example: config.frontend_url },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "otp"],
+                properties: {
+                  email: { type: "string", format: "email" },
+                  otp: { type: "string", description: "6-digit OTP code" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Email verified successfully" },
+        },
+      },
+    },
     "/api/auth/sign-in/email": {
       post: {
         summary: "Sign in with email and password",

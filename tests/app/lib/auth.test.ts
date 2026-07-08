@@ -4,6 +4,10 @@ const betterAuthMock = vi.fn((options: unknown) => ({ options }));
 const prismaAdapterMock = vi.fn(() => "prisma-adapter");
 const adminPluginMock = vi.fn((options: unknown) => ({ id: "admin", options }));
 const openAPIMock = vi.fn(() => ({ id: "open-api" }));
+const emailOTPMock = vi.fn((options: unknown) => ({
+  id: "email-otp",
+  options,
+}));
 
 vi.mock("better-auth", () => ({
   betterAuth: betterAuthMock,
@@ -16,10 +20,15 @@ vi.mock("better-auth/adapters/prisma", () => ({
 vi.mock("better-auth/plugins", () => ({
   admin: adminPluginMock,
   openAPI: openAPIMock,
+  emailOTP: emailOTPMock,
 }));
 
 vi.mock("../../../src/app/lib/prisma", () => ({
   default: "prisma-client",
+}));
+
+vi.mock("../../../src/app/lib/email", () => ({
+  sendVerificationOTP: vi.fn(),
 }));
 
 describe("auth configuration", () => {
@@ -52,7 +61,9 @@ describe("auth configuration", () => {
     expect(betterAuthMock).toHaveBeenCalledWith(
       expect.objectContaining({
         database: "prisma-adapter",
-        emailAndPassword: { enabled: true },
+        emailAndPassword: {
+          enabled: true,
+        },
         socialProviders: {
           google: {
             clientId: "google-client-id",
@@ -61,6 +72,14 @@ describe("auth configuration", () => {
         },
         trustedOrigins: ["http://localhost:3000"],
         plugins: [
+          {
+            id: "email-otp",
+            options: {
+              sendVerificationOTP: expect.any(Function),
+              sendVerificationOnSignUp: true,
+              overrideDefaultEmailVerification: true,
+            },
+          },
           {
             id: "admin",
             options: { ac, roles: { admin, user }, defaultRole: "user" },
