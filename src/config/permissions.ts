@@ -4,6 +4,7 @@ import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
 export const statement = {
   ...defaultStatements,
   shipment: ["create", "view", "cancel", "browse"],
+  shipmentCategory: ["create", "view", "update", "delete"],
   trip: ["create", "view", "update-status"],
   settlement: ["release", "view"],
   withdrawal: ["process", "view"],
@@ -19,6 +20,7 @@ export const user = ac.newRole({
 export const admin = ac.newRole({
   ...adminAc.statements,
   shipment: ["create", "view", "cancel", "browse"],
+  shipmentCategory: ["create", "view", "update", "delete"],
   trip: ["create", "view", "update-status"],
   settlement: ["release", "view"],
   withdrawal: ["process", "view"],
