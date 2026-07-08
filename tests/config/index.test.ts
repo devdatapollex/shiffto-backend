@@ -16,6 +16,11 @@ describe("createConfig", () => {
       R2_PRIVATE_BUCKET: "shiffto-private",
       GOOGLE_CLIENT_ID: "google-client-id",
       GOOGLE_CLIENT_SECRET: "google-client-secret",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_PORT: "587",
+      SMTP_USER: "user@example.com",
+      SMTP_PASS: "smtp-password",
+      SMTP_FROM: "noreply@example.com",
     });
 
     expect(config).toEqual({
@@ -35,6 +40,14 @@ describe("createConfig", () => {
         client_id: "google-client-id",
         client_secret: "google-client-secret",
       },
+      smtp: {
+        service: "",
+        host: "smtp.example.com",
+        port: 587,
+        user: "user@example.com",
+        pass: "smtp-password",
+        from: "noreply@example.com",
+      },
     });
   });
 
@@ -49,6 +62,12 @@ describe("createConfig", () => {
     expect(config.r2.private_bucket).toBe("");
     expect(config.google.client_id).toBe("");
     expect(config.google.client_secret).toBe("");
+    expect(config.smtp.service).toBe("");
+    expect(config.smtp.host).toBe("");
+    expect(config.smtp.port).toBe(587);
+    expect(config.smtp.user).toBe("");
+    expect(config.smtp.pass).toBe("");
+    expect(config.smtp.from).toBe("");
   });
 
   it("throws a readable error when required config is missing", () => {
