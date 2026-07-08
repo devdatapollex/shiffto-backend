@@ -7,6 +7,7 @@ This project is an early-stage TypeScript backend. Document the current shape be
 - Language: TypeScript with ESM.
 - HTTP framework: Express 5.
 - Auth: Better Auth with Prisma adapter.
+- Auth plugins: Better Auth Admin plugin for RBAC plus Better Auth OpenAPI plugin.
 - Database: PostgreSQL through Prisma and `@prisma/adapter-pg`.
 - Validation: Zod middleware exists.
 - Tests: Vitest with Supertest for HTTP request-level tests.
@@ -17,6 +18,7 @@ This project is an early-stage TypeScript backend. Document the current shape be
 - `src/server.ts` starts the HTTP server and imports the Express app.
 - `src/app.ts` is the app composition module. It wires CORS, Better Auth, parsers, API routes, root response, error handling, and 404 handling.
 - `src/config/index.ts` loads environment configuration.
+- `src/config/permissions.ts` defines the Better Auth access-control statements and `admin`/`user` roles shared with the frontend.
 - `src/app/routes/index.ts` is the `/api/v1` route registry.
 - `src/app/middlewares/` contains cross-cutting Express middleware.
 - `tests/` mirrors `src/` structure and contains all test files. Tests are kept separate from implementation code — never create `.test.ts` files inside `src/`.
@@ -32,6 +34,8 @@ This project is an early-stage TypeScript backend. Document the current shape be
 Better Auth is mounted directly in `src/app.ts`:
 
 - `/api/auth/{*any}`
+
+The Next.js frontend proxies `/api/auth/*` to this backend route. `FRONTEND_URL` must stay aligned with the frontend origin because it is used by both CORS and Better Auth `trustedOrigins`.
 
 Versioned application routes are mounted through `src/app/routes/index.ts`:
 
