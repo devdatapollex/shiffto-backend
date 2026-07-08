@@ -1,11 +1,11 @@
 info:
-  name: Sign In
+  name: Sign In With Google
   type: http
-  seq: 2
+  seq: 3
 
 http:
   method: POST
-  url: "{{localurl}}/api/auth/sign-in/email"
+  url: "{{localurl}}/api/auth/sign-in/social"
   headers:
     - name: Origin
       value: "{{frontendurl}}"
@@ -15,12 +15,8 @@ http:
     type: json
     data: |-
       {
-      //   "email": "test1@example.com",
-      //   "password": "test123"
-
-        "email": "admin@shiffto.com",
-        "password": "admin123"
-
+        "provider": "google",
+        "callbackURL": "{{frontendurl}}/dashboard"
       }
   auth: inherit
 

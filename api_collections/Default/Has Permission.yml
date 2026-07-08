@@ -1,11 +1,11 @@
 info:
-  name: Sign In
+  name: Has Permission
   type: http
-  seq: 2
+  seq: 5
 
 http:
   method: POST
-  url: "{{localurl}}/api/auth/sign-in/email"
+  url: "{{localurl}}/api/auth/admin/has-permission"
   headers:
     - name: Origin
       value: "{{frontendurl}}"
@@ -15,12 +15,9 @@ http:
     type: json
     data: |-
       {
-      //   "email": "test1@example.com",
-      //   "password": "test123"
-
-        "email": "admin@shiffto.com",
-        "password": "admin123"
-
+        "permissions": {
+          "shipment": ["create"]
+        }
       }
   auth: inherit
 
