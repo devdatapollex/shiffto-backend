@@ -14,4 +14,20 @@ describe("api docs", () => {
       paths: expect.any(Object),
     });
   });
+
+  it("documents frontend auth alignment endpoints", async () => {
+    const response = await request(app)
+      .get("/api/docs/openapi.json")
+      .expect(200);
+
+    expect(response.body.paths).toEqual(
+      expect.objectContaining({
+        "/api/auth/sign-up/email": expect.any(Object),
+        "/api/auth/sign-in/email": expect.any(Object),
+        "/api/auth/sign-in/social": expect.any(Object),
+        "/api/auth/get-session": expect.any(Object),
+        "/api/auth/admin/has-permission": expect.any(Object),
+      }),
+    );
+  });
 });
