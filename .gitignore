@@ -7,3 +7,4 @@ uploads
 /.idea
 
 /src/generated/prisma
+.commandcode/
