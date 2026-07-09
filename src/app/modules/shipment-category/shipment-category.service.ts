@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma";
+import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 
@@ -32,7 +33,7 @@ const getCategoryById = async (id: string) => {
   const result = await prisma.shipmentCategory.findUnique({ where: { id } });
 
   if (!result) {
-    throw new ApiError(404, "Shipment category not found");
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment category not found");
   }
 
   return result;

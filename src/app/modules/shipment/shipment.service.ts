@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma";
+import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 
@@ -22,7 +23,7 @@ const validateConstraints = (
     data.weight > category.maxWeight
   ) {
     throw new ApiError(
-      400,
+      httpStatus.BAD_REQUEST,
       `Weight exceeds category maximum of ${category.maxWeight}`,
     );
   }
@@ -34,13 +35,16 @@ const validateConstraints = (
     data.quantity > category.maxQuantity
   ) {
     throw new ApiError(
-      400,
+      httpStatus.BAD_REQUEST,
       `Quantity exceeds category maximum of ${category.maxQuantity}`,
     );
   }
 
   if (data.pricePerKg !== undefined && data.pricePerKg < category.minPrice) {
-    throw new ApiError(400, `Price must be at least ${category.minPrice}`);
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Price must be at least ${category.minPrice}`,
+    );
   }
 
   if (
@@ -49,7 +53,10 @@ const validateConstraints = (
     category.maxPrice !== null &&
     data.pricePerKg > category.maxPrice
   ) {
-    throw new ApiError(400, `Price must not exceed ${category.maxPrice}`);
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Price must not exceed ${category.maxPrice}`,
+    );
   }
 };
 
@@ -118,7 +125,7 @@ const getShipmentById = async (id: string, userId: string) => {
   });
 
   if (!result) {
-    throw new ApiError(404, "Shipment not found");
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
   return result;
@@ -148,7 +155,7 @@ const updateShipment = async (
   });
 
   if (!existing) {
-    throw new ApiError(404, "Shipment not found");
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
   if (
@@ -162,7 +169,7 @@ const updateShipment = async (
     });
 
     if (!category) {
-      throw new ApiError(404, "Shipment category not found");
+      throw new ApiError(httpStatus.NOT_FOUND, "Shipment category not found");
     }
 
     validateConstraints(
@@ -190,7 +197,7 @@ const deleteShipment = async (id: string, userId: string) => {
   });
 
   if (!existing) {
-    throw new ApiError(404, "Shipment not found");
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
   const result = await prisma.shipment.delete({ where: { id } });
