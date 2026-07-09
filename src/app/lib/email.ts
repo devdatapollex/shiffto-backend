@@ -48,7 +48,6 @@ export const sendVerificationOTP = async ({
   otp: string;
   type: "sign-in" | "email-verification" | "forget-password" | "change-email";
 }) => {
-  console.log("Inside sendVerificationOTP function");
   const subject =
     type === "email-verification" || type === "change-email"
       ? "Verify your email for Shiffto"
@@ -64,8 +63,6 @@ export const sendVerificationOTP = async ({
     subject,
     text: `Your verification code is: ${otp}\n\nThis code expires in 5 minutes.\n\nIf you didn't request this, please ignore this email.`,
   };
-
-  console.log("Mail options:", mailOptions);
   try {
     await getTransporter().sendMail(mailOptions);
     console.log(

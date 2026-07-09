@@ -353,3 +353,33 @@ Notes:
 - The Prisma schema already had the `Verification` model and `emailVerified` Boolean — no migration needed.
 - OTP is stored in the `verification` table (`identifier` = email, `value` = OTP code).
 - The frontend signs up via `POST /api/auth/sign-up/email`, then manually calls `POST /api/auth/email-otp/send-verification-otp` to receive the OTP, then calls `POST /api/auth/email-otp/verify-email` to complete verification.
+
+## Password Reset Via Email OTP
+
+Status: Completed
+Started: 2026-07-09
+Completed: 2026-07-09
+
+Scope:
+
+- Add password reset via Better Auth emailOTP plugin endpoints.
+- Request password reset OTP, then verify OTP and set new password.
+
+Completed Work:
+
+- Added Bruno API collection files:
+  - `api_collections/Default/Auth/Request Password Reset.yml` — `POST /api/auth/email-otp/request-password-reset`
+  - `api_collections/Default/Auth/Reset Password.yml` — `POST /api/auth/email-otp/reset-password`
+- Added OpenAPI spec entries for both endpoints in `src/app/docs/openapi.ts`.
+- Updated `docs/feature-progress.md` with this entry.
+
+Verification:
+
+- `npm run typecheck` completed successfully.
+- `npm run build` completed successfully.
+
+Notes:
+
+- No Prisma migration or code change required — Better Auth's emailOTP plugin already handles the flow via the existing `Verification` model.
+- The `sendVerificationOTP` function in `src/app/lib/email.ts` already supported the `"forget-password"` OTP type with the subject "Reset your Shiffto password".
+- The deprecated `/api/auth/forget-password/email-otp` endpoint exists in Better Auth but is intentionally not added to the API collection.
