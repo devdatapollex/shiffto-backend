@@ -2,15 +2,12 @@ import prisma from "../../lib/prisma";
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { paginationHelpers } from "../../helper/paginationHelpers";
+import { ShipmentCategoryValidation } from "./shipment-category.validation";
+import z from "zod";
 
-const createCategory = async (data: {
-  name: string;
-  slug: string;
-  maxWeight?: number;
-  minPrice: number;
-  maxPrice?: number;
-  maxQuantity?: number;
-}) => {
+const createCategory = async (
+  data: z.infer<typeof ShipmentCategoryValidation.createCategorySchema>,
+) => {
   const result = await prisma.shipmentCategory.create({ data });
   return result;
 };
@@ -41,14 +38,7 @@ const getCategoryById = async (id: string) => {
 
 const updateCategory = async (
   id: string,
-  data: {
-    name?: string;
-    slug?: string;
-    maxWeight?: number;
-    minPrice?: number;
-    maxPrice?: number;
-    maxQuantity?: number;
-  },
+  data: z.infer<typeof ShipmentCategoryValidation.updateCategorySchema>,
 ) => {
   await getCategoryById(id);
 

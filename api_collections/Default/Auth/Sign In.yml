@@ -15,11 +15,11 @@ http:
     type: json
     data: |-
       {
-      //   "email": "test1@example.com",
-      //   "password": "test123"
+        "email": "gazifayaz.2000@gmail.com",
+        "password": "password123"
 
-        "email": "admin@shiffto.com",
-        "password": "admin123"
+      //   "email": "admin@shiffto.com",
+      //   "password": "admin123"
 
       }
   auth: inherit
