@@ -1,58 +1,45 @@
+import { ShipmentValidation } from "./shipment.validation";
 import prisma from "../../lib/prisma";
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { paginationHelpers } from "../../helper/paginationHelpers";
+import z from "zod";
 
 const validateConstraints = (
   data: {
-    weight?: number;
-    quantity?: number;
-    pricePerKg?: number;
+    weight: number;
+    quantity: number;
+    pricePerKg: number;
   },
   category: {
-    maxWeight?: number | null;
+    maxWeight: number | null;
     minPrice: number;
-    maxPrice?: number | null;
-    maxQuantity?: number | null;
+    maxPrice: number | null;
+    maxQuantity: number | null;
   },
 ) => {
-  if (
-    data.weight !== undefined &&
-    category.maxWeight !== undefined &&
-    category.maxWeight !== null &&
-    data.weight > category.maxWeight
-  ) {
+  if (category.maxWeight && data.weight > category.maxWeight) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       `Weight exceeds category maximum of ${category.maxWeight}`,
     );
   }
 
-  if (
-    data.quantity !== undefined &&
-    category.maxQuantity !== undefined &&
-    category.maxQuantity !== null &&
-    data.quantity > category.maxQuantity
-  ) {
+  if (category.maxQuantity && data.quantity > category.maxQuantity) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       `Quantity exceeds category maximum of ${category.maxQuantity}`,
     );
   }
 
-  if (data.pricePerKg !== undefined && data.pricePerKg < category.minPrice) {
+  if (data.pricePerKg && data.pricePerKg < category.minPrice) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       `Price must be at least ${category.minPrice}`,
     );
   }
 
-  if (
-    data.pricePerKg !== undefined &&
-    category.maxPrice !== undefined &&
-    category.maxPrice !== null &&
-    data.pricePerKg > category.maxPrice
-  ) {
+  if (category.maxPrice && data.pricePerKg > category.maxPrice) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       `Price must not exceed ${category.maxPrice}`,
@@ -61,21 +48,7 @@ const validateConstraints = (
 };
 
 const createShipment = async (
-  data: {
-    itemName: string;
-    weight: number;
-    quantity: number;
-    description: string;
-    itemPhotos?: string[];
-    instructions: string;
-    fromCountry: string;
-    toCountry: string;
-    pricePerKg: number;
-    receiverName: string;
-    receiverPhone: string;
-    receiverAddress: string;
-    categoryId: string;
-  },
+  data: z.infer<typeof ShipmentValidation.createShipmentSchema>,
   userId: string,
 ) => {
   const category = await prisma.shipmentCategory.findUnique({
@@ -133,24 +106,10 @@ const getShipmentById = async (id: string, userId: string) => {
 
 const updateShipment = async (
   id: string,
-  data: {
-    itemName?: string;
-    weight?: number;
-    quantity?: number;
-    description?: string;
-    itemPhotos?: string[];
-    instructions?: string;
-    fromCountry?: string;
-    toCountry?: string;
-    pricePerKg?: number;
-    receiverName?: string;
-    receiverPhone?: string;
-    receiverAddress?: string;
-    categoryId?: string;
-  },
+  data: z.infer<typeof ShipmentValidation.updateShipmentSchema>,
   userId: string,
 ) => {
-  const existing = await prisma.shipment.findFirst({
+  const existing = await prisma.shipment.findUnique({
     where: { id, userId },
   });
 
@@ -158,12 +117,7 @@ const updateShipment = async (
     throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
-  if (
-    data.categoryId ||
-    data.weight !== undefined ||
-    data.quantity !== undefined ||
-    data.pricePerKg !== undefined
-  ) {
+  if (data.categoryId || data.weight || data.quantity || data.pricePerKg) {
     const category = await prisma.shipmentCategory.findUnique({
       where: { id: data.categoryId ?? existing.categoryId },
     });
