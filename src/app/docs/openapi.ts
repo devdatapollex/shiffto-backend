@@ -226,6 +226,76 @@ export const openapiDoc = {
         },
       },
     },
+    "/api/auth/email-otp/request-password-reset": {
+      post: {
+        summary: "Request a password reset OTP",
+        operationId: "authEmailOtpRequestPasswordReset",
+        tags: ["Auth"],
+        parameters: [
+          {
+            name: "Origin",
+            in: "header",
+            required: true,
+            schema: { type: "string", example: config.frontend_url },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email"],
+                properties: {
+                  email: { type: "string", format: "email" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Password reset OTP sent successfully" },
+        },
+      },
+    },
+    "/api/auth/email-otp/reset-password": {
+      post: {
+        summary: "Reset password with OTP and new password",
+        operationId: "authEmailOtpResetPassword",
+        tags: ["Auth"],
+        parameters: [
+          {
+            name: "Origin",
+            in: "header",
+            required: true,
+            schema: { type: "string", example: config.frontend_url },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "otp", "password"],
+                properties: {
+                  email: { type: "string", format: "email" },
+                  otp: { type: "string", description: "6-digit OTP code" },
+                  password: {
+                    type: "string",
+                    minLength: 8,
+                    description: "New password",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Password reset successfully" },
+        },
+      },
+    },
     "/api/auth/admin/has-permission": {
       post: {
         summary: "Check permissions through Better Auth Admin plugin",
