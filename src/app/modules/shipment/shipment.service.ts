@@ -4,6 +4,7 @@ import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 import z from "zod";
+import { User } from "../../lib/auth";
 
 const validateConstraints = (
   data: {
@@ -49,7 +50,7 @@ const validateConstraints = (
 
 const createShipment = async (
   data: z.infer<typeof ShipmentValidation.createShipmentSchema>,
-  userId: string,
+  user: User,
 ) => {
   const category = await prisma.shipmentCategory.findUnique({
     where: { id: data.categoryId },
@@ -65,7 +66,7 @@ const createShipment = async (
     data: {
       ...data,
       itemPhotos: data.itemPhotos ?? [],
-      userId,
+      userId: user.id,
     },
     include: { category: true },
   });
@@ -73,10 +74,10 @@ const createShipment = async (
   return result;
 };
 
-const getShipments = async (query: Record<string, unknown>, userId: string) => {
+const getShipments = async (query: Record<string, unknown>, user: User) => {
   const { page, limit, skip } = paginationHelpers.calculatePagination(query);
 
-  const where = { userId };
+  const where = { userId: user.role !== "admin" ? user.id : undefined };
 
   const result = await prisma.shipment.findMany({
     where,
@@ -91,9 +92,9 @@ const getShipments = async (query: Record<string, unknown>, userId: string) => {
   return { data: result, meta: { page, limit, total } };
 };
 
-const getShipmentById = async (id: string, userId: string) => {
+const getShipmentById = async (id: string, user: User) => {
   const result = await prisma.shipment.findFirst({
-    where: { id, userId },
+    where: { id, userId: user.role !== "admin" ? user.id : undefined },
     include: { category: true },
   });
 
@@ -107,10 +108,10 @@ const getShipmentById = async (id: string, userId: string) => {
 const updateShipment = async (
   id: string,
   data: z.infer<typeof ShipmentValidation.updateShipmentSchema>,
-  userId: string,
+  user: User,
 ) => {
   const existing = await prisma.shipment.findUnique({
-    where: { id, userId },
+    where: { id, userId: user.role !== "admin" ? user.id : undefined },
   });
 
   if (!existing) {
@@ -137,7 +138,7 @@ const updateShipment = async (
   }
 
   const result = await prisma.shipment.update({
-    where: { id },
+    where: { id, userId: user.role !== "admin" ? user.id : undefined },
     data,
     include: { category: true },
   });
@@ -145,9 +146,9 @@ const updateShipment = async (
   return result;
 };
 
-const deleteShipment = async (id: string, userId: string) => {
+const deleteShipment = async (id: string, user: User) => {
   const existing = await prisma.shipment.findFirst({
-    where: { id, userId },
+    where: { id, userId: user.role !== "admin" ? user.id : undefined },
   });
 
   if (!existing) {

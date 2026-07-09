@@ -15,8 +15,8 @@ http:
     type: json
     data: |-
       {
-        "email": "test1@example.com",
-        "otp": "123456"
+        "email": "test3@example.com",
+        "otp": "611974"
       }
   auth: inherit
 
