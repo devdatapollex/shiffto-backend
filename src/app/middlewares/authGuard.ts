@@ -1,7 +1,7 @@
 import { RequestHandler } from "express";
 import httpStatus from "http-status";
 import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "../lib/auth";
+import { auth, User } from "../lib/auth";
 import catchAsync from "../lib/catchAsync";
 import ApiError from "../errors/ApiError";
 
@@ -19,8 +19,6 @@ const authGuard = (options: AuthGuardOptions = {}): RequestHandler =>
       throw new ApiError(httpStatus.UNAUTHORIZED, "Not authenticated");
     }
 
-    req.user = session.user;
-
     if (options.adminOnly && session.user.role !== "admin") {
       throw new ApiError(httpStatus.FORBIDDEN, "Admin access required");
     }
@@ -28,6 +26,8 @@ const authGuard = (options: AuthGuardOptions = {}): RequestHandler =>
     if (session.user.role !== "admin" && !session.user.emailVerified) {
       throw new ApiError(httpStatus.FORBIDDEN, "Email verification required");
     }
+
+    req.user = session.user as User;
 
     next();
   });

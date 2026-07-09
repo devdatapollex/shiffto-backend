@@ -4,7 +4,7 @@ import sendResponse from "../../lib/sendResponse";
 import { ShipmentService } from "./shipment.service";
 
 const createShipment = catchAsync(async (req: Request, res: Response) => {
-  const result = await ShipmentService.createShipment(req.body, req.user!.id);
+  const result = await ShipmentService.createShipment(req.body, req.user!);
 
   sendResponse(res, {
     statusCode: 201,
@@ -17,7 +17,7 @@ const createShipment = catchAsync(async (req: Request, res: Response) => {
 const getShipments = catchAsync(async (req: Request, res: Response) => {
   const result = await ShipmentService.getShipments(
     req.query as Record<string, unknown>,
-    req.user!.id,
+    req.user!,
   );
 
   sendResponse(res, {
@@ -32,7 +32,7 @@ const getShipments = catchAsync(async (req: Request, res: Response) => {
 const getShipmentById = catchAsync(async (req: Request, res: Response) => {
   const result = await ShipmentService.getShipmentById(
     req.params.id as string,
-    req.user!.id,
+    req.user!,
   );
 
   sendResponse(res, {
@@ -47,7 +47,7 @@ const updateShipment = catchAsync(async (req: Request, res: Response) => {
   const result = await ShipmentService.updateShipment(
     req.params.id as string,
     req.body,
-    req.user!.id,
+    req.user!,
   );
 
   sendResponse(res, {
@@ -61,7 +61,7 @@ const updateShipment = catchAsync(async (req: Request, res: Response) => {
 const deleteShipment = catchAsync(async (req: Request, res: Response) => {
   const result = await ShipmentService.deleteShipment(
     req.params.id as string,
-    req.user!.id,
+    req.user!,
   );
 
   sendResponse(res, {
