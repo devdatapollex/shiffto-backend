@@ -1,7 +1,12 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import prisma from "./prisma";
-import { admin as adminPlugin, emailOTP, openAPI } from "better-auth/plugins";
+import {
+  admin as adminPlugin,
+  bearer,
+  emailOTP,
+  openAPI,
+} from "better-auth/plugins";
 import config from "../../config/index";
 import { ac, admin, user } from "../../config/permissions";
 import { sendVerificationOTP } from "./email";
@@ -9,6 +14,9 @@ import { sendVerificationOTP } from "./email";
 const rolesConfig = { admin, user };
 
 export const auth = betterAuth({
+  advanced: {
+    disableOriginCheck: true, // set false for production
+  },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
@@ -22,8 +30,9 @@ export const auth = betterAuth({
       clientSecret: config.google.client_secret,
     },
   },
-  trustedOrigins: [config.frontend_url],
+  trustedOrigins: [config.frontend_url, config.mobile_app_url],
   plugins: [
+    bearer(),
     emailOTP({
       sendVerificationOTP,
       sendVerificationOnSignUp: true,
