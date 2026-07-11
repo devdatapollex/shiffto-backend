@@ -3,8 +3,20 @@ import prisma from "../../lib/prisma";
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { paginationHelpers } from "../../helper/paginationHelpers";
+import { fileUploader } from "../../helper/fileUploader";
 import z from "zod";
 import { User } from "../../lib/auth";
+
+const cleanupOrphanPhotos = async (oldUrls: string[], newUrls: string[]) => {
+  const removedUrls = oldUrls.filter((url) => !newUrls.includes(url));
+  if (removedUrls.length > 0) {
+    await Promise.allSettled(
+      removedUrls.map((url) =>
+        fileUploader.deletePublicFile(fileUploader.extractKey(url)),
+      ),
+    );
+  }
+};
 
 const validateConstraints = (
   data: {
@@ -137,11 +149,17 @@ const updateShipment = async (
     );
   }
 
+  const oldPhotos = data.itemPhotos !== undefined ? existing.itemPhotos : null;
+
   const result = await prisma.shipment.update({
     where: { id, userId: user.role !== "admin" ? user.id : undefined },
     data,
     include: { category: true },
   });
+
+  if (oldPhotos !== null) {
+    await cleanupOrphanPhotos(oldPhotos, data.itemPhotos!);
+  }
 
   return result;
 };
@@ -156,6 +174,14 @@ const deleteShipment = async (id: string, user: User) => {
   }
 
   const result = await prisma.shipment.delete({ where: { id } });
+
+  if (existing.itemPhotos.length > 0) {
+    await Promise.allSettled(
+      existing.itemPhotos.map((url) =>
+        fileUploader.deletePublicFile(fileUploader.extractKey(url)),
+      ),
+    );
+  }
 
   return result;
 };

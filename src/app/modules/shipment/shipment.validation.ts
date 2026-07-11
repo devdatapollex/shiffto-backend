@@ -21,7 +21,7 @@ const updateShipmentSchema = z.object({
   weight: z.number().positive().optional(),
   quantity: z.number().int().positive().optional(),
   description: z.string().min(1).optional(),
-  itemPhotos: z.array(z.string()).optional(),
+  itemPhotos: z.array(z.string()).min(0).max(10).optional(),
   instructions: z.string().min(1).optional(),
   fromCountry: z.string().min(1).optional(),
   toCountry: z.string().min(1).optional(),
