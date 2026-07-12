@@ -1,0 +1,24 @@
+info:
+  name: Update Shipment
+  type: http
+  seq: 4
+
+http:
+  method: PATCH
+  url: "{{localurl}}/api/v1/shipments/{{shipmentId}}"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "itemName": "Updated Laptop"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

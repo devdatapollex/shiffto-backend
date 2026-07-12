@@ -1,0 +1,28 @@
+info:
+  name: Has Permission
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{localurl}}/api/auth/admin/has-permission"
+  headers:
+    - name: Origin
+      value: "{{frontendurl}}"
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "permissions": {
+          "shipment": ["create"]
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
