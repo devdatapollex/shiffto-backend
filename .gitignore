@@ -2,5 +2,10 @@ node_modules
 dist
 .env
 .env.test
+uploads
 
-/generated/prisma
+/.idea
+
+/src/generated/prisma
+.commandcode/
+.vercel

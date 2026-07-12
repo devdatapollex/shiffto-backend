@@ -1,0 +1,29 @@
+info:
+  name: Create ShipmentCategory
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/shipment-categories"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Electronics",
+        "slug": "electronics",
+        "maxWeight": 50,
+        "minPrice": 10,
+        "maxPrice": 200,
+        "maxQuantity": 100
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

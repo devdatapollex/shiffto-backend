@@ -1,0 +1,27 @@
+info:
+  name: Sign In With Google
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{localurl}}/api/auth/sign-in/social"
+  headers:
+    - name: Origin
+      value: "{{frontendurl}}"
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "provider": "google",
+        "callbackURL": "{{frontendurl}}/dashboard"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
