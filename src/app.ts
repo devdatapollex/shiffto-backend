@@ -1,6 +1,7 @@
 import express, { Application } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import path from "path";
 import globalErrorHandler from "./app/middlewares/globalErrorHandler";
 import notFound from "./app/middlewares/notFound";
 import router from "./app/routes/index";
@@ -23,6 +24,10 @@ app.all("/api/auth/{*any}", toNodeHandler(auth));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static uploads
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 app.use("/api/v1", router);
 
 app.use("/api/docs", docsRouter);
