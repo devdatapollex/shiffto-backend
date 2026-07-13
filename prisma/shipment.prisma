@@ -35,5 +35,9 @@ model Shipment {
   user   User   @relation(fields: [userId], references: [id])
   userId String
 
+  trip   Trip?  @relation(fields: [tripId], references: [id])
+  tripId String?
+  bagType String? // cabin or checkIn
+
   @@map("shipments")
 }

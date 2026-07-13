@@ -13,6 +13,8 @@ model User {
   sessions      Session[]
   accounts      Account[]
   shipments     Shipment[]
+  trips         Trip[]
+  notifications Notification[]
 
   @@unique([email])
   @@map("user")

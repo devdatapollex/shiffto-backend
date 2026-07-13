@@ -73,3 +73,31 @@ export const sendVerificationOTP = async ({
     throw error;
   }
 };
+
+export const sendEmail = async ({
+  to,
+  subject,
+  html,
+  text,
+}: {
+  to: string;
+  subject: string;
+  html?: string;
+  text?: string;
+}) => {
+  const from = config.smtp.from || config.smtp.user;
+  const mailOptions: SendMailOptions = {
+    from,
+    to,
+    subject,
+    text,
+    html,
+  };
+  try {
+    await getTransporter().sendMail(mailOptions);
+    console.log(`Email sent to ${to}: ${subject}`);
+  } catch (error) {
+    console.error(`Failed to send email to ${to}:`, error);
+    throw error;
+  }
+};
