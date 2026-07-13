@@ -1,11 +1,21 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import ApiError from "../../../src/app/errors/ApiError";
 
+const mockFileUploader = {
+  deletePublicFile: vi.fn(() => Promise.resolve()),
+  extractKey: vi.fn((url: string) => url.replace("https://cdn.shiffto.com/", "")),
+};
+
+vi.mock("../../../../src/app/helper/fileUploader", () => ({
+  fileUploader: mockFileUploader,
+}));
+
 const mockShipment = {
   create: vi.fn(),
   findMany: vi.fn(),
   count: vi.fn(),
   findFirst: vi.fn(),
+  findUnique: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
 };
@@ -38,6 +48,7 @@ const fullData = {
 };
 
 const userId = "user-1";
+const mockUser = { id: userId, role: "user" as const };
 
 describe("ShipmentService", () => {
   beforeEach(() => {
@@ -63,7 +74,7 @@ describe("ShipmentService", () => {
       });
 
       const { ShipmentService } = await importService();
-      const result = await ShipmentService.createShipment(fullData, userId);
+      const result = await ShipmentService.createShipment(fullData, mockUser);
 
       expect(result.id).toBe("ship-1");
       expect(mockShipment.create).toHaveBeenCalledWith({
@@ -78,7 +89,7 @@ describe("ShipmentService", () => {
       const { ShipmentService } = await importService();
 
       await expect(
-        ShipmentService.createShipment(fullData, userId),
+        ShipmentService.createShipment(fullData, mockUser),
       ).rejects.toMatchObject({
         statusCode: 404,
         message: "Shipment category not found",
@@ -95,7 +106,7 @@ describe("ShipmentService", () => {
       const { ShipmentService } = await importService();
 
       await expect(
-        ShipmentService.createShipment(fullData, userId),
+        ShipmentService.createShipment(fullData, mockUser),
       ).rejects.toMatchObject({
         statusCode: 400,
         message: "Weight exceeds category maximum of 3",
@@ -112,7 +123,7 @@ describe("ShipmentService", () => {
       const { ShipmentService } = await importService();
 
       await expect(
-        ShipmentService.createShipment(fullData, userId),
+        ShipmentService.createShipment(fullData, mockUser),
       ).rejects.toMatchObject({
         statusCode: 400,
         message: "Quantity exceeds category maximum of 1",
@@ -128,7 +139,7 @@ describe("ShipmentService", () => {
       const { ShipmentService } = await importService();
 
       await expect(
-        ShipmentService.createShipment(fullData, userId),
+        ShipmentService.createShipment(fullData, mockUser),
       ).rejects.toMatchObject({
         statusCode: 400,
         message: "Price must be at least 200",
@@ -145,7 +156,7 @@ describe("ShipmentService", () => {
       const { ShipmentService } = await importService();
 
       await expect(
-        ShipmentService.createShipment(fullData, userId),
+        ShipmentService.createShipment(fullData, mockUser),
       ).rejects.toMatchObject({
         statusCode: 400,
         message: "Price must not exceed 50",
@@ -159,7 +170,7 @@ describe("ShipmentService", () => {
       mockShipment.count.mockResolvedValue(1);
 
       const { ShipmentService } = await importService();
-      const result = await ShipmentService.getShipments({}, userId);
+      const result = await ShipmentService.getShipments({}, mockUser);
 
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
@@ -176,7 +187,7 @@ describe("ShipmentService", () => {
       mockShipment.findFirst.mockResolvedValue({ id: "ship-1", userId });
 
       const { ShipmentService } = await importService();
-      const result = await ShipmentService.getShipmentById("ship-1", userId);
+      const result = await ShipmentService.getShipmentById("ship-1", mockUser);
 
       expect(result).toEqual({ id: "ship-1", userId });
       expect(mockShipment.findFirst).toHaveBeenCalledWith({
@@ -191,7 +202,7 @@ describe("ShipmentService", () => {
       const { ShipmentService } = await importService();
 
       await expect(
-        ShipmentService.getShipmentById("ship-1", userId),
+        ShipmentService.getShipmentById("ship-1", mockUser),
       ).rejects.toMatchObject({
         statusCode: 404,
         message: "Shipment not found",
@@ -201,13 +212,14 @@ describe("ShipmentService", () => {
 
   describe("updateShipment", () => {
     it("updates shipment for owner", async () => {
-      mockShipment.findFirst.mockResolvedValueOnce({
+      mockShipment.findUnique.mockResolvedValue({
         id: "ship-1",
         userId,
         categoryId: "cat-1",
         weight: 5,
         quantity: 2,
         pricePerKg: 100,
+        itemPhotos: ["https://cdn.shiffto.com/shipments/photos/old.jpg"],
       });
       mockShipment.update.mockResolvedValue({ id: "ship-1", itemName: "New" });
 
@@ -215,19 +227,55 @@ describe("ShipmentService", () => {
       const result = await ShipmentService.updateShipment(
         "ship-1",
         { itemName: "New" },
-        userId,
+        mockUser,
       );
 
       expect(result).toEqual({ id: "ship-1", itemName: "New" });
+      expect(mockFileUploader.deletePublicFile).not.toHaveBeenCalled();
+    });
+
+    it("cleans up orphan photos when itemPhotos is updated", async () => {
+      mockShipment.findUnique.mockResolvedValue({
+        id: "ship-1",
+        userId,
+        categoryId: "cat-1",
+        weight: 5,
+        quantity: 2,
+        pricePerKg: 100,
+        itemPhotos: [
+          "https://cdn.shiffto.com/shipments/photos/keep.jpg",
+          "https://cdn.shiffto.com/shipments/photos/remove.jpg",
+        ],
+      });
+      mockShipment.update.mockResolvedValue({
+        id: "ship-1",
+        itemPhotos: ["https://cdn.shiffto.com/shipments/photos/keep.jpg"],
+      });
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.updateShipment(
+        "ship-1",
+        {
+          itemPhotos: ["https://cdn.shiffto.com/shipments/photos/keep.jpg"],
+        },
+        mockUser,
+      );
+
+      expect(mockFileUploader.extractKey).toHaveBeenCalledWith(
+        "https://cdn.shiffto.com/shipments/photos/remove.jpg",
+      );
+      expect(mockFileUploader.deletePublicFile).toHaveBeenCalledWith(
+        "shipments/photos/remove.jpg",
+      );
     });
 
     it("throws 404 if not owner", async () => {
-      mockShipment.findFirst.mockResolvedValue(null);
+      mockShipment.findUnique.mockResolvedValue(null);
 
       const { ShipmentService } = await importService();
 
       await expect(
-        ShipmentService.updateShipment("ship-1", { itemName: "X" }, userId),
+        ShipmentService.updateShipment("ship-1", { itemName: "X" }, mockUser),
       ).rejects.toMatchObject({
         statusCode: 404,
       });
@@ -235,14 +283,37 @@ describe("ShipmentService", () => {
   });
 
   describe("deleteShipment", () => {
-    it("deletes shipment for owner", async () => {
-      mockShipment.findFirst.mockResolvedValue({ id: "ship-1", userId });
+    it("deletes shipment for owner and cleans up photos", async () => {
+      mockShipment.findFirst.mockResolvedValue({
+        id: "ship-1",
+        userId,
+        itemPhotos: [
+          "https://cdn.shiffto.com/shipments/photos/photo1.jpg",
+          "https://cdn.shiffto.com/shipments/photos/photo2.jpg",
+        ],
+      });
       mockShipment.delete.mockResolvedValue({ id: "ship-1" });
 
       const { ShipmentService } = await importService();
-      const result = await ShipmentService.deleteShipment("ship-1", userId);
+      const result = await ShipmentService.deleteShipment("ship-1", mockUser);
 
       expect(result).toEqual({ id: "ship-1" });
+      expect(mockFileUploader.deletePublicFile).toHaveBeenCalledTimes(2);
+      expect(mockFileUploader.extractKey).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not attempt cleanup when shipment has no photos", async () => {
+      mockShipment.findFirst.mockResolvedValue({
+        id: "ship-1",
+        userId,
+        itemPhotos: [],
+      });
+      mockShipment.delete.mockResolvedValue({ id: "ship-1" });
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.deleteShipment("ship-1", mockUser);
+
+      expect(mockFileUploader.deletePublicFile).not.toHaveBeenCalled();
     });
 
     it("throws 404 if not owner", async () => {
@@ -251,7 +322,7 @@ describe("ShipmentService", () => {
       const { ShipmentService } = await importService();
 
       await expect(
-        ShipmentService.deleteShipment("ship-1", userId),
+        ShipmentService.deleteShipment("ship-1", mockUser),
       ).rejects.toMatchObject({
         statusCode: 404,
       });

@@ -83,3 +83,12 @@ export async function deleteObject(key: string) {
     }),
   );
 }
+
+export async function deleteFromPublicBucket(key: string) {
+  await publicClient.send(
+    new DeleteObjectCommand({
+      Bucket: config.r2.public_bucket,
+      Key: key,
+    }),
+  );
+}

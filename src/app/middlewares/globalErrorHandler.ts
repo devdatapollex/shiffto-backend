@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
-import { Prisma } from "@prisma/client";
+import multer from "multer";
+import { Prisma } from "../../generated/prisma/client";
 
 const globalErrorHandler = (
   err: any,
@@ -41,6 +42,9 @@ const globalErrorHandler = (
   } else if (err instanceof Prisma.PrismaClientInitializationError) {
     message = "Prisma client failed to initialize!";
     error = err.message;
+    statusCode = httpStatus.BAD_REQUEST;
+  } else if (err instanceof multer.MulterError) {
+    message = err.message;
     statusCode = httpStatus.BAD_REQUEST;
   }
 

@@ -1,9 +1,11 @@
 import multer from "multer";
+import config from "../../config/index";
 import {
   uploadToPublicBucket,
   uploadToPrivateBucket,
   getPresignedUrl,
   deleteObject,
+  deleteFromPublicBucket,
 } from "../lib/storage";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -32,5 +34,14 @@ export const fileUploader = {
 
   deleteFile: async (key: string) => {
     return deleteObject(key);
+  },
+
+  deletePublicFile: async (key: string) => {
+    return deleteFromPublicBucket(key);
+  },
+
+  extractKey: (url: string): string => {
+    const prefix = `${config.r2.public_url}/`;
+    return url.startsWith(prefix) ? url.slice(prefix.length) : url;
   },
 };
