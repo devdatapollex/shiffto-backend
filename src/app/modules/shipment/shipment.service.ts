@@ -89,7 +89,29 @@ const createShipment = async (
 const getShipments = async (query: Record<string, unknown>, user: User) => {
   const { page, limit, skip } = paginationHelpers.calculatePagination(query);
 
-  const where = { userId: user.role !== "admin" ? user.id : undefined };
+  const where: any = {};
+
+  if (query.type === "available") {
+    where.tripId = null;
+    if (query.fromCountry) {
+      where.fromCountry = {
+        contains: query.fromCountry as string,
+        mode: "insensitive",
+      };
+    }
+    if (query.toCountry) {
+      where.toCountry = {
+        contains: query.toCountry as string,
+        mode: "insensitive",
+      };
+    }
+  } else if (user.role !== "admin") {
+    where.userId = user.id;
+  } else {
+    if (query.userId) {
+      where.userId = query.userId as string;
+    }
+  }
 
   const result = await prisma.shipment.findMany({
     where,
