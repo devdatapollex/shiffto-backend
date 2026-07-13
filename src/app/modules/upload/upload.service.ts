@@ -8,7 +8,7 @@ const uploadPhotos = async (files: Express.Multer.File[]) => {
     if (!PHOTO_UPLOAD.ALLOWED_TYPES.includes(file.mimetype)) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        `Invalid file type: ${file.originalname}. Allowed: jpg, jpeg, png, webp`,
+        `Invalid file type: ${file.originalname}. Allowed: jpg, jpeg, png, webp, pdf`,
       );
     }
     if (file.size > PHOTO_UPLOAD.MAX_SIZE) {
