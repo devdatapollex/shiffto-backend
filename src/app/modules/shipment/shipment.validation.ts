@@ -62,6 +62,9 @@ const createShipmentSchema = z.object({
   categoryId: z
     .string({ error: "Category is required" })
     .min(1, { error: "Category must not be empty" }),
+  otp: z
+    .string({ error: "OTP is required" })
+    .length(6, { error: "OTP must be 6 digits" }),
 });
 
 const updateShipmentSchema = z.object({
