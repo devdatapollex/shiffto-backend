@@ -333,6 +333,39 @@ export const openapiDoc = {
         },
       },
     },
+    "/api/v1/uploads/photos": {
+      post: {
+        summary: "Upload shipment item photos",
+        operationId: "uploadPhotos",
+        tags: ["Uploads"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["photos"],
+                properties: {
+                  photos: {
+                    type: "array",
+                    items: { type: "string", format: "binary" },
+                    maxItems: 10,
+                    description: "Images to upload (jpg, jpeg, png, webp, max 5MB each)",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Photos uploaded, returns array of { key, url }" },
+          "400": { description: "Invalid file type, size, or no files provided" },
+          "401": { description: "Not authenticated" },
+          "403": { description: "Email verification required" },
+        },
+      },
+    },
     "/api/v1/shipment-categories": {
       get: {
         summary: "List all shipment categories (admin only)",
@@ -516,7 +549,7 @@ export const openapiDoc = {
                   weight: { type: "number", example: 5 },
                   quantity: { type: "integer", example: 2 },
                   description: { type: "string" },
-                  itemPhotos: { type: "array", items: { type: "string" } },
+                  itemPhotos: { type: "array", items: { type: "string" }, maxItems: 10, description: "Upload photo URLs (from POST /api/v1/uploads/photos), max 10" },
                   instructions: { type: "string" },
                   fromCountry: { type: "string", example: "US" },
                   toCountry: { type: "string", example: "BD" },
@@ -584,7 +617,7 @@ export const openapiDoc = {
                   weight: { type: "number" },
                   quantity: { type: "integer" },
                   description: { type: "string" },
-                  itemPhotos: { type: "array", items: { type: "string" } },
+                  itemPhotos: { type: "array", items: { type: "string" }, maxItems: 10, description: "Upload photo URLs (from POST /api/v1/uploads/photos), max 10" },
                   instructions: { type: "string" },
                   fromCountry: { type: "string" },
                   toCountry: { type: "string" },
