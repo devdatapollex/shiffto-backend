@@ -13,6 +13,8 @@ router.post(
   ShipmentController.createShipment,
 );
 
+router.post("/send-otp", authGuard(), ShipmentController.sendShipmentOtp);
+
 router.get("/", authGuard(), ShipmentController.getShipments);
 
 router.get("/:id", authGuard(), ShipmentController.getShipmentById);

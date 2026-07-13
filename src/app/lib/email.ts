@@ -46,14 +46,21 @@ export const sendVerificationOTP = async ({
 }: {
   email: string;
   otp: string;
-  type: "sign-in" | "email-verification" | "forget-password" | "change-email";
+  type:
+    | "sign-in"
+    | "email-verification"
+    | "forget-password"
+    | "change-email"
+    | "shipment-verification";
 }) => {
   const subject =
     type === "email-verification" || type === "change-email"
       ? "Verify your email for Shiffto"
       : type === "sign-in"
         ? "Sign in to Shiffto"
-        : "Reset your Shiffto password";
+        : type === "shipment-verification"
+          ? "Confirm your shipment — Shiffto"
+          : "Reset your Shiffto password";
 
   const from = config.smtp.from || config.smtp.user;
 
