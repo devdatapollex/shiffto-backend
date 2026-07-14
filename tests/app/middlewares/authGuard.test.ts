@@ -4,6 +4,7 @@ import ApiError from "../../../src/app/errors/ApiError";
 
 const mockGetSession = vi.fn();
 const mockFromNodeHeaders = vi.fn((headers: unknown) => headers);
+const mockUserFindUnique = vi.fn();
 
 vi.mock("better-auth/node", () => ({
   fromNodeHeaders: mockFromNodeHeaders,
@@ -17,6 +18,14 @@ vi.mock("../../../src/app/lib/auth", () => ({
   },
 }));
 
+vi.mock("../../../src/app/lib/prisma", () => ({
+  default: {
+    user: {
+      findUnique: mockUserFindUnique,
+    },
+  },
+}));
+
 const buildReq = (overrides = {}) =>
   ({
     headers: { cookie: "session=abc" },
@@ -26,6 +35,10 @@ const buildReq = (overrides = {}) =>
 describe("authGuard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUserFindUnique.mockImplementation(async () => {
+      const session = await mockGetSession.mock.results[0]?.value;
+      return session?.user || null;
+    });
   });
 
   const importAuthGuard = () =>

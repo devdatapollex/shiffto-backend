@@ -28,6 +28,7 @@ describe("createConfig", () => {
       port: 7000,
       database_url: "postgresql://user:pass@localhost:5432/shiffto",
       frontend_url: "http://localhost:3001",
+      mobile_app_url: "myapp://auth",
       r2: {
         account_id: "account-id",
         access_key_id: "access-key",
