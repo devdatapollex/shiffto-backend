@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type { SendMailOptions, Transporter } from "nodemailer";
 import config from "../../config/index";
+import { renderTemplate } from "./email/template-engine";
 
 let transporter: Transporter | null = null;
 
@@ -53,14 +54,35 @@ export const sendVerificationOTP = async ({
     | "change-email"
     | "shipment-verification";
 }) => {
-  const subject =
-    type === "email-verification" || type === "change-email"
-      ? "Verify your email for Shiffto"
-      : type === "sign-in"
-        ? "Sign in to Shiffto"
-        : type === "shipment-verification"
-          ? "Confirm your shipment — Shiffto"
-          : "Reset your Shiffto password";
+  const templateMap: Record<string, { template: string; subject: string }> = {
+    "email-verification": {
+      template: "auth/verify-email",
+      subject: "Verify your email for Shiffto",
+    },
+    "change-email": {
+      template: "auth/verify-email",
+      subject: "Verify your new email for Shiffto",
+    },
+    "sign-in": {
+      template: "auth/sign-in-otp",
+      subject: "Sign in to Shiffto",
+    },
+    "forget-password": {
+      template: "auth/forgot-password",
+      subject: "Reset your Shiffto password",
+    },
+    "shipment-verification": {
+      template: "notifications/shipment-verification",
+      subject: "Confirm your shipment — Shiffto",
+    },
+  };
+
+  const mapping = templateMap[type];
+  if (!mapping) {
+    throw new Error(`Unknown email type: ${type}`);
+  }
+  const { template, subject } = mapping;
+  const html = renderTemplate(template, { email, otp, subject });
 
   const from = config.smtp.from || config.smtp.user;
 
@@ -68,7 +90,7 @@ export const sendVerificationOTP = async ({
     from,
     to: email,
     subject,
-    text: `Your verification code is: ${otp}\n\nThis code expires in 5 minutes.\n\nIf you didn't request this, please ignore this email.`,
+    html,
   };
   try {
     await getTransporter().sendMail(mailOptions);
