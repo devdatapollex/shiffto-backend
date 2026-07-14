@@ -50,7 +50,7 @@ describe("sendVerificationOTP", () => {
       from: "noreply@test.com",
       to: "user@example.com",
       subject: "Verify your email for Shiffto",
-      text: expect.stringContaining("123456"),
+      html: expect.stringContaining("123456"),
     });
 
     await sendVerificationOTP({
