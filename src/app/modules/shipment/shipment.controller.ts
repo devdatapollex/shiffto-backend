@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import catchAsync from "../../lib/catchAsync";
 import sendResponse from "../../lib/sendResponse";
 import { ShipmentService } from "./shipment.service";
+import { ShipmentOtpService } from "./shipment-otp.service";
 
 const createShipment = catchAsync(async (req: Request, res: Response) => {
   const result = await ShipmentService.createShipment(req.body, req.user!);
@@ -11,6 +12,17 @@ const createShipment = catchAsync(async (req: Request, res: Response) => {
     success: true,
     message: "Shipment created successfully",
     data: result,
+  });
+});
+
+const sendShipmentOtp = catchAsync(async (req: Request, res: Response) => {
+  await ShipmentOtpService.generateAndSendShipmentOtp(req.user!.email);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Verification code sent to your email",
+    data: null,
   });
 });
 
@@ -74,6 +86,7 @@ const deleteShipment = catchAsync(async (req: Request, res: Response) => {
 
 export const ShipmentController = {
   createShipment,
+  sendShipmentOtp,
   getShipments,
   getShipmentById,
   updateShipment,

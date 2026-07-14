@@ -6,6 +6,7 @@ import { paginationHelpers } from "../../helper/paginationHelpers";
 import { fileUploader } from "../../helper/fileUploader";
 import z from "zod";
 import { User } from "../../lib/auth";
+import { ShipmentOtpService } from "./shipment-otp.service";
 
 const cleanupOrphanPhotos = async (oldUrls: string[], newUrls: string[]) => {
   const removedUrls = oldUrls.filter((url) => !newUrls.includes(url));
@@ -64,23 +65,29 @@ const createShipment = async (
   data: z.infer<typeof ShipmentValidation.createShipmentSchema>,
   user: User,
 ) => {
-  const category = await prisma.shipmentCategory.findUnique({
-    where: { id: data.categoryId },
-  });
+  const { otp, ...shipmentData } = data;
 
-  if (!category) {
-    throw new ApiError(404, "Shipment category not found");
-  }
+  const result = await prisma.$transaction(async (tx) => {
+    await ShipmentOtpService.verifyShipmentOtp(user.email, otp, tx);
 
-  validateConstraints(data, category);
+    const category = await tx.shipmentCategory.findUnique({
+      where: { id: shipmentData.categoryId },
+    });
 
-  const result = await prisma.shipment.create({
-    data: {
-      ...data,
-      itemPhotos: data.itemPhotos ?? [],
-      userId: user.id,
-    },
-    include: { category: true },
+    if (!category) {
+      throw new ApiError(404, "Shipment category not found");
+    }
+
+    validateConstraints(shipmentData, category);
+
+    return tx.shipment.create({
+      data: {
+        ...shipmentData,
+        itemPhotos: shipmentData.itemPhotos ?? [],
+        userId: user.id,
+      },
+      include: { category: true },
+    });
   });
 
   return result;
