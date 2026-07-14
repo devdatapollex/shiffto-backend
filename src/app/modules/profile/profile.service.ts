@@ -24,7 +24,7 @@ const getProfile = async (userId: string) => {
 
 const updateProfile = async (
   userId: string,
-  payload: z.infer<typeof ProfileValidation.updateProfileSchema>["body"],
+  payload: z.infer<typeof ProfileValidation.updateProfileSchema>,
 ) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -51,7 +51,7 @@ const updateProfile = async (
 
 const changePassword = async (
   headers: any,
-  payload: z.infer<typeof ProfileValidation.changePasswordSchema>["body"],
+  payload: z.infer<typeof ProfileValidation.changePasswordSchema>,
 ) => {
   try {
     await auth.api.changePassword({
@@ -72,7 +72,7 @@ const changePassword = async (
 
 const submitKyc = async (
   userId: string,
-  payload: z.infer<typeof ProfileValidation.submitKycSchema>["body"],
+  payload: z.infer<typeof ProfileValidation.submitKycSchema>,
 ) => {
   const existingKyc = await prisma.kyc.findUnique({
     where: { userId },
@@ -141,7 +141,7 @@ const deactivateAccount = async (userId: string) => {
 
 const deleteAccount = async (
   userId: string,
-  payload: z.infer<typeof ProfileValidation.deleteAccountSchema>["body"],
+  payload: z.infer<typeof ProfileValidation.deleteAccountSchema>,
 ) => {
   // Check active shipments
   const activeShipmentsCount = await prisma.shipment.count({
