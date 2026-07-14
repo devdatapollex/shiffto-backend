@@ -80,12 +80,31 @@ const createShipment = async (
 
     validateConstraints(shipmentData, category);
 
-    return tx.shipment.create({
+    const shipment = await tx.shipment.create({
       data: {
         ...shipmentData,
         itemPhotos: shipmentData.itemPhotos ?? [],
         userId: user.id,
       },
+    });
+
+    const definitions = await tx.stepDefinition.findMany({
+      orderBy: { order: "asc" },
+    });
+
+    await tx.shipmentStep.createMany({
+      data: definitions.map((def) => ({
+        shipmentId: shipment.id,
+        definitionId: def.id,
+        stage: def.stage,
+        order: def.order,
+        isCurrent: def.order === 2,
+        completedAt: def.order === 1 ? new Date() : null,
+      })),
+    });
+
+    return tx.shipment.findUnique({
+      where: { id: shipment.id },
       include: { category: true },
     });
   });
@@ -178,6 +197,29 @@ const getShipmentById = async (id: string, user: User) => {
   return result;
 };
 
+const getShipmentSteps = async (shipmentId: string, user: User) => {
+  const shipment = await prisma.shipment.findUnique({
+    where: { id: shipmentId },
+    select: { id: true, userId: true },
+  });
+
+  if (!shipment) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
+  }
+
+  if (user.role !== "admin" && shipment.userId !== user.id) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
+  }
+
+  const steps = await prisma.shipmentStep.findMany({
+    where: { shipmentId },
+    include: { definition: true },
+    orderBy: { order: "asc" },
+  });
+
+  return steps;
+};
+
 const updateShipment = async (
   id: string,
   data: z.infer<typeof ShipmentValidation.updateShipmentSchema>,
@@ -251,6 +293,7 @@ export const ShipmentService = {
   createShipment,
   getShipments,
   getShipmentById,
+  getShipmentSteps,
   updateShipment,
   deleteShipment,
 };
