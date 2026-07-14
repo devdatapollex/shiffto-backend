@@ -296,6 +296,126 @@ describe("ShipmentService", () => {
         }),
       );
     });
+
+    it("admin without params returns all shipments (no userId filter)", async () => {
+      const adminUser = { ...mockUser, role: "admin" as const };
+      mockShipment.findMany.mockResolvedValue([
+        { id: "ship-1" },
+        { id: "ship-2" },
+      ]);
+      mockShipment.count.mockResolvedValue(2);
+
+      const { ShipmentService } = await importService();
+      const result = await ShipmentService.getShipments({}, adminUser);
+
+      expect(result.data).toHaveLength(2);
+      expect(result.meta.total).toBe(2);
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {},
+        }),
+      );
+    });
+
+    it("admin with userId param filters by that user", async () => {
+      const adminUser = { ...mockUser, role: "admin" as const };
+      mockShipment.findMany.mockResolvedValue([{ id: "ship-1" }]);
+      mockShipment.count.mockResolvedValue(1);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments(
+        { userId: "other-user-id" },
+        adminUser,
+      );
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: "other-user-id" },
+        }),
+      );
+    });
+
+    it("status param filters by shipment status", async () => {
+      mockShipment.findMany.mockResolvedValue([
+        { id: "ship-1", status: "active" },
+      ]);
+      mockShipment.count.mockResolvedValue(1);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments({ status: "active" }, mockUser);
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId, status: "active" },
+        }),
+      );
+    });
+
+    it("search param creates OR filter across multiple fields", async () => {
+      mockShipment.findMany.mockResolvedValue([{ id: "ship-1" }]);
+      mockShipment.count.mockResolvedValue(1);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments({ search: "laptop" }, mockUser);
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId,
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                itemName: expect.objectContaining({ contains: "laptop" }),
+              }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it("sortBy and sortOrder params control ordering", async () => {
+      mockShipment.findMany.mockResolvedValue([]);
+      mockShipment.count.mockResolvedValue(0);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments(
+        { sortBy: "pricePerKg", sortOrder: "desc" },
+        mockUser,
+      );
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { pricePerKg: "desc" },
+        }),
+      );
+    });
+
+    it("invalid sortBy falls back to itemName with default desc order", async () => {
+      mockShipment.findMany.mockResolvedValue([]);
+      mockShipment.count.mockResolvedValue(0);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments({ sortBy: "invalidField" }, mockUser);
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { itemName: "desc" },
+        }),
+      );
+    });
+
+    it("non-admin always filters by own userId regardless of query.userId", async () => {
+      mockShipment.findMany.mockResolvedValue([]);
+      mockShipment.count.mockResolvedValue(0);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments({ userId: "other-user-id" }, mockUser);
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId },
+        }),
+      );
+    });
   });
 
   describe("getShipmentById", () => {
