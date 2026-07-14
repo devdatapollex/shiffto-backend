@@ -1,5 +1,6 @@
 import express from "express";
 import authGuard from "../../middlewares/authGuard";
+import kycGuard from "../../middlewares/kycGuard";
 import validateRequest from "../../middlewares/validateRequest";
 import { ShipmentController } from "./shipment.controller";
 import { ShipmentValidation } from "./shipment.validation";
@@ -9,6 +10,7 @@ const router = express.Router();
 router.post(
   "/",
   authGuard(),
+  kycGuard(),
   validateRequest(ShipmentValidation.createShipmentSchema),
   ShipmentController.createShipment,
 );
