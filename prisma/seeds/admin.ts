@@ -2,13 +2,17 @@ import prisma from "../../src/app/lib/prisma";
 import { auth } from "../../src/app/lib/auth";
 
 async function seedAdmin() {
-  const email = process.env.ADMIN_EMAIL || "admin@shiffto.com";
-  const password = process.env.ADMIN_PASSWORD || "admin123";
-  const name = process.env.ADMIN_NAME || "Admin";
+  const email = process.env.ADMIN_EMAIL || "shiffto.admin@gmail.com";
+  const password = process.env.ADMIN_PASSWORD || "12345678";
+  const name = process.env.ADMIN_NAME || "Shiffto Admin";
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    console.log(`Admin user already exists: ${email}`);
+    await prisma.user.update({
+      where: { email },
+      data: { emailVerified: true },
+    });
+    console.log(`Admin user already exists (ensured verified): ${email}`);
     return;
   }
 
@@ -21,7 +25,12 @@ async function seedAdmin() {
     },
   });
 
-  console.log(`Admin user created: ${email}`);
+  await prisma.user.update({
+    where: { email },
+    data: { emailVerified: true },
+  });
+
+  console.log(`Admin user created and verified: ${email}`);
 }
 
 seedAdmin()
