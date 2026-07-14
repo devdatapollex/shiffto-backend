@@ -11,6 +11,10 @@ vi.mock("../../../src/app/lib/storage", () => ({
   deleteObject: vi.fn(() => Promise.resolve()),
 }));
 
+process.env.CLOUDFLARE_ACCOUNT_ID = "mock-account-id";
+process.env.R2_ACCESS_KEY_ID = "mock-access-key-id";
+process.env.R2_SECRET_ACCESS_KEY = "mock-secret-access-key";
+
 const { fileUploader } = await import("../../../src/app/helper/fileUploader");
 const storage = await import("../../../src/app/lib/storage");
 

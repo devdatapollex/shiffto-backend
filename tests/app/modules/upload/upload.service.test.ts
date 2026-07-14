@@ -12,12 +12,10 @@ vi.mock("../../../../src/app/helper/fileUploader", () => ({
   },
 }));
 
-const { fileUploader } = await import(
-  "../../../../src/app/helper/fileUploader"
-);
-const { UploadService } = await import(
-  "../../../../src/app/modules/upload/upload.service"
-);
+const { fileUploader } =
+  await import("../../../../src/app/helper/fileUploader");
+const { UploadService } =
+  await import("../../../../src/app/modules/upload/upload.service");
 
 const makeFile = (
   overrides: Partial<Express.Multer.File> = {},
@@ -28,7 +26,7 @@ const makeFile = (
     mimetype: "image/jpeg",
     size: 1024,
     ...overrides,
-  } as Express.Multer.File);
+  }) as Express.Multer.File;
 
 describe("UploadService", () => {
   beforeEach(() => {
@@ -37,7 +35,10 @@ describe("UploadService", () => {
 
   describe("uploadPhotos", () => {
     it("uploads multiple valid files and returns key/url pairs", async () => {
-      const files = [makeFile(), makeFile({ originalname: "photo2.png", mimetype: "image/png" })];
+      const files = [
+        makeFile(),
+        makeFile({ originalname: "photo2.png", mimetype: "image/png" }),
+      ];
 
       const results = await UploadService.uploadPhotos(files);
 
@@ -52,7 +53,13 @@ describe("UploadService", () => {
     });
 
     it("throws 400 for invalid file types", async () => {
-      const files = [makeFile({ originalname: "doc.pdf", mimetype: "application/pdf" })];
+      const files = [
+        makeFile({
+          originalname: "doc.docx",
+          mimetype:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }),
+      ];
 
       await expect(UploadService.uploadPhotos(files)).rejects.toMatchObject({
         statusCode: 400,
@@ -74,7 +81,10 @@ describe("UploadService", () => {
     it("rejects all files if any are invalid", async () => {
       const files = [
         makeFile(),
-        makeFile({ originalname: "bad.exe", mimetype: "application/x-msdownload" }),
+        makeFile({
+          originalname: "bad.exe",
+          mimetype: "application/x-msdownload",
+        }),
       ];
 
       await expect(UploadService.uploadPhotos(files)).rejects.toMatchObject({
@@ -84,7 +94,9 @@ describe("UploadService", () => {
     });
 
     it("accepts webp files", async () => {
-      const files = [makeFile({ originalname: "photo.webp", mimetype: "image/webp" })];
+      const files = [
+        makeFile({ originalname: "photo.webp", mimetype: "image/webp" }),
+      ];
 
       await UploadService.uploadPhotos(files);
 

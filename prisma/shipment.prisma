@@ -12,32 +12,26 @@ model ShipmentCategory {
 }
 
 model Shipment {
-  id           String   @id @default(uuid(7))
-  itemName     String
-  weight       Float
-  quantity     Int
-  description  String
-  itemPhotos   String[]
-  instructions String
-
-  fromCountry String
-  toCountry   String
-
-  pricePerKg Float
-
+  id              String           @id @default(uuid(7))
+  itemName        String
+  weight          Float
+  quantity        Int
+  description     String
+  itemPhotos      String[]
+  instructions    String
+  fromCountry     String
+  toCountry       String
+  pricePerKg      Float
   receiverName    String
   receiverPhone   String
   receiverAddress String
-
-  category   ShipmentCategory @relation(fields: [categoryId], references: [id])
-  categoryId String
-
-  user   User   @relation(fields: [userId], references: [id])
-  userId String
-
-  trip   Trip?  @relation(fields: [tripId], references: [id])
-  tripId String?
-  bagType String? // cabin or checkIn
+  categoryId      String
+  userId          String
+  tripId          String?
+  bagType         String?
+  category        ShipmentCategory @relation(fields: [categoryId], references: [id])
+  trip            Trip?            @relation(fields: [tripId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
 
   @@map("shipments")
 }
