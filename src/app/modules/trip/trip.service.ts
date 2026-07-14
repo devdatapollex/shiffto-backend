@@ -72,6 +72,25 @@ const getTrips = async (query: Record<string, unknown>, user: User) => {
     if (query.status) {
       where.status = query.status as string;
     }
+    if (query.searchTerm) {
+      const search = query.searchTerm as string;
+      where.OR = [
+        { flightNumber: { contains: search, mode: "insensitive" } },
+        { fromCountry: { contains: search, mode: "insensitive" } },
+        { toCountry: { contains: search, mode: "insensitive" } },
+        { id: { contains: search, mode: "insensitive" } },
+        {
+          user: {
+            name: { contains: search, mode: "insensitive" },
+          },
+        },
+        {
+          user: {
+            email: { contains: search, mode: "insensitive" },
+          },
+        },
+      ];
+    }
   }
 
   const result = await prisma.trip.findMany({
