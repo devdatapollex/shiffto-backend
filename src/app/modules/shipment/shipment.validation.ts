@@ -31,8 +31,8 @@ const createShipmentSchema = z.object({
         .min(1, { error: "Photo URL must not be empty" }),
       { error: "Item photos must be an array" },
     )
-    .min(0, { error: "At least 1 item photo is required" })
-    .max(10, { error: "Maximum 10 item photos allowed" }),
+    .min(1, { error: "At least 1 item photo is required" })
+    .max(5, { error: "Maximum 5 item photos allowed" }),
   instructions: z
     .string({ error: "Instructions are required" })
     .min(1, { error: "Instructions must not be empty" }),
@@ -93,7 +93,7 @@ const updateShipmentSchema = z.object({
       { error: "Item photos must be an array" },
     )
     .min(0)
-    .max(10, { error: "Maximum 10 item photos allowed" })
+    .max(5, { error: "Maximum 5 item photos allowed" })
     .optional(),
   instructions: z
     .string({ error: "Instructions must be a string" })

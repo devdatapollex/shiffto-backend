@@ -94,10 +94,12 @@ const createShipment = async (
 };
 
 const getShipments = async (query: Record<string, unknown>, user: User) => {
-  const { page, limit, skip } = paginationHelpers.calculatePagination(query);
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelpers.calculatePagination(query);
 
   const where: any = {};
 
+  // Available shipments filter (browse page)
   if (query.type === "available") {
     where.tripId = null;
     if (query.fromCountry) {
@@ -112,19 +114,49 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
         mode: "insensitive",
       };
     }
-  } else if (user.role !== "admin") {
-    where.userId = user.id;
-  } else {
-    if (query.userId) {
-      where.userId = query.userId as string;
-    }
   }
+
+  // Role-based user filter
+  if (user.role !== "admin") {
+    where.userId = user.id;
+  } else if (query.userId) {
+    where.userId = query.userId as string;
+  }
+
+  // Status filter
+  if (query.status) {
+    where.status = query.status as string;
+  }
+
+  // Search across multiple fields
+  if (query.search) {
+    const searchTerm = query.search as string;
+    where.OR = [
+      { itemName: { contains: searchTerm, mode: "insensitive" } },
+      { description: { contains: searchTerm, mode: "insensitive" } },
+      { receiverName: { contains: searchTerm, mode: "insensitive" } },
+      { fromCountry: { contains: searchTerm, mode: "insensitive" } },
+      { toCountry: { contains: searchTerm, mode: "insensitive" } },
+    ];
+  }
+
+  // Dynamic sort with whitelist
+  const allowedSortFields = [
+    "itemName",
+    "pricePerKg",
+    "fromCountry",
+    "toCountry",
+    "createdAt",
+    "status",
+    "weight",
+  ];
+  const sortField = allowedSortFields.includes(sortBy) ? sortBy : "itemName";
 
   const result = await prisma.shipment.findMany({
     where,
     skip,
     take: limit,
-    orderBy: { itemName: "asc" },
+    orderBy: { [sortField]: sortOrder },
     include: { category: true },
   });
 
