@@ -1,38 +1,59 @@
 model User {
-  id            String     @id
+  id            String         @id
   name          String
-  email         String
-  emailVerified Boolean    @default(false)
+  email         String         @unique
+  emailVerified Boolean        @default(false)
   image         String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  role          String?
-  banned        Boolean?   @default(false)
-  banReason     String?
+  phone         String?
+  isDeactivated Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   banExpires    DateTime?
-  sessions      Session[]
+  banReason     String?
+  banned        Boolean?       @default(false)
+  role          String?
   accounts      Account[]
+  notifications Notification[]
+  sessions      Session[]
   shipments     Shipment[]
   trips         Trip[]
-  notifications Notification[]
+  kyc           Kyc?
 
-  @@unique([email])
   @@map("user")
+}
+
+model Kyc {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType    String   // "PASSPORT" | "DRIVING_LICENSE" | "NID"
+  documentNumber  String
+  nationality     String
+  phoneNumber     String
+  frontPhotoUrl   String
+  frontPhotoKey   String
+  backPhotoUrl    String
+  backPhotoKey    String
+  status          String   @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("kyc")
 }
 
 model Session {
   id             String   @id
   expiresAt      DateTime
-  token          String
+  token          String   @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   ipAddress      String?
   userAgent      String?
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([token])
   @@index([userId])
   @@map("session")
 }
@@ -42,7 +63,6 @@ model Account {
   accountId             String
   providerId            String
   userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
   idToken               String?
@@ -52,6 +72,7 @@ model Account {
   password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("account")

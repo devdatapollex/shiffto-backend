@@ -4,6 +4,7 @@ const betterAuthMock = vi.fn((options: unknown) => ({ options }));
 const prismaAdapterMock = vi.fn(() => "prisma-adapter");
 const adminPluginMock = vi.fn((options: unknown) => ({ id: "admin", options }));
 const openAPIMock = vi.fn(() => ({ id: "open-api" }));
+const bearerMock = vi.fn(() => ({ id: "bearer" }));
 const emailOTPMock = vi.fn((options: unknown) => ({
   id: "email-otp",
   options,
@@ -21,6 +22,7 @@ vi.mock("better-auth/plugins", () => ({
   admin: adminPluginMock,
   openAPI: openAPIMock,
   emailOTP: emailOTPMock,
+  bearer: bearerMock,
 }));
 
 vi.mock("../../../src/app/lib/prisma", () => ({
@@ -70,8 +72,9 @@ describe("auth configuration", () => {
             clientSecret: "google-client-secret",
           },
         },
-        trustedOrigins: ["http://localhost:3000"],
+        trustedOrigins: ["http://localhost:3000", "myapp://auth"],
         plugins: [
+          { id: "bearer" },
           {
             id: "email-otp",
             options: {

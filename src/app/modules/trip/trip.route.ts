@@ -1,5 +1,6 @@
 import express from "express";
 import authGuard from "../../middlewares/authGuard";
+import kycGuard from "../../middlewares/kycGuard";
 import validateRequest from "../../middlewares/validateRequest";
 import { TripController } from "./trip.controller";
 import { TripValidation } from "./trip.validation";
@@ -9,6 +10,7 @@ const router = express.Router();
 router.post(
   "/",
   authGuard(),
+  kycGuard(),
   validateRequest(TripValidation.createTripSchema),
   TripController.createTrip,
 );
