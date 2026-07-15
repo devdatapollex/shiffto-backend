@@ -52,7 +52,8 @@ export const sendVerificationOTP = async ({
     | "email-verification"
     | "forget-password"
     | "change-email"
-    | "shipment-verification";
+    | "shipment-verification"
+    | "shipment-delivery";
 }) => {
   const templateMap: Record<string, { template: string; subject: string }> = {
     "email-verification": {
@@ -74,6 +75,10 @@ export const sendVerificationOTP = async ({
     "shipment-verification": {
       template: "notifications/shipment-verification",
       subject: "Confirm your shipment — Shiffto",
+    },
+    "shipment-delivery": {
+      template: "notifications/shipment-verification",
+      subject: "Confirm delivery — Shiffto",
     },
   };
 

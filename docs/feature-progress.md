@@ -383,3 +383,62 @@ Notes:
 - No Prisma migration or code change required — Better Auth's emailOTP plugin already handles the flow via the existing `Verification` model.
 - The `sendVerificationOTP` function in `src/app/lib/email.ts` already supported the `"forget-password"` OTP type with the subject "Reset your Shiffto password".
 - The deprecated `/api/auth/forget-password/email-otp` endpoint exists in Better Auth but is intentionally not added to the API collection.
+
+## Shipment Step Progression
+
+Status: Completed
+Started: 2026-07-15
+Completed: 2026-07-15
+
+Scope:
+
+- Add backend functionality for progressing shipment steps sequentially.
+- Core progression service with reusable logic for step advancement.
+- Dedicated route handlers for each step with specific validation.
+- Payment confirmation route (simulated for now, Stripe integration later).
+- Delivery OTP verification flow.
+- Photo proof requirements for pickup and delivery steps.
+
+Completed Work:
+
+- Added `photoUrl` field to `ShipmentStep` model via Prisma migration `20260715091009_add_step_photo_url`.
+- Created `src/app/modules/shipment/shipment-step.service.ts` with core progression logic:
+  - `confirmPayment` - activates shipment and marks PAYMENT_CONFIRMED as completed.
+  - `advanceStep` - advances to next sequential step with optional notes/photoUrl.
+- Created `src/app/modules/shipment/shipment-step.validation.ts` with Zod schemas for each step.
+- Created `src/app/modules/shipment/shipment-step.controller.ts` with route handlers.
+- Created `src/app/modules/shipment/shipment-step.routes.ts` with Express router.
+- Modified `src/app/modules/shipment/shipment-otp.service.ts`:
+  - Added `generateDeliveryOtp(shipmentId)` - sends OTP to shipment owner's email.
+  - Added `verifyDeliveryOtp(email, otp)` - verifies delivery OTP.
+- Modified `src/app/modules/shipment/shipment.route.ts` to mount step routes.
+- Modified `src/app/lib/email.ts` to add `shipment-delivery` OTP type.
+- Added 8 API collection files in `api_collections/Default/Shipments/`:
+  - Confirm Payment.yml
+  - Send Delivery OTP.yml
+  - Confirm Pickup.yml
+  - Confirm Check-in.yml
+  - Confirm Transit.yml
+  - Confirm Arrival.yml
+  - Confirm Out for Delivery.yml
+  - Confirm Delivery.yml
+- Updated OpenAPI spec in `src/app/docs/openapi.ts` with all new endpoints.
+- All existing tests pass (78 tests across 13 files).
+
+Verification:
+
+- `npx prisma migrate dev -n "add-step-photo-url"` completed successfully.
+- `npx tsc --noEmit` completed successfully.
+- `npx vitest run` completed successfully: 78 tests passed.
+
+Notes:
+
+- Payment confirmation is simulated for now (`POST /shipments/:id/confirm-payment`). Will be replaced with Stripe integration later.
+- Steps advance sequentially only, no backwards movement allowed.
+- Shipment owner (sender) can advance steps for now. Traveler assignment not built yet.
+- Photo proof required for pickup (step 2→3) and delivery (step 7).
+- Notes optional for all steps.
+- Notifications skipped for now.
+- Delivery requires OTP verification: traveler calls `send-delivery-otp`, OTP sent to sender, receiver shares OTP with traveler, traveler submits with photo.
+- Shipment status transitions: AWAITING_MATCH → ACTIVE (on payment), ACTIVE → DELIVERED (on delivery).
+- Cancellation not allowed after pickup.
