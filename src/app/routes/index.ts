@@ -6,12 +6,14 @@ import { TripRoutes } from "../modules/trip/trip.route";
 import { ProfileRoutes } from "../modules/profile/profile.route";
 import { AdminRoutes } from "../modules/admin/admin.route";
 import { NotificationRoutes } from "../modules/notification/notification.route";
+import { StepDefinitionRoutes } from "../modules/step-definition/step-definition.route";
 
 const router = express.Router();
 
 const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/shipments", route: ShipmentRoutes },
   { path: "/shipment-categories", route: ShipmentCategoryRoutes },
+  { path: "/shipments-steps", route: StepDefinitionRoutes },
   { path: "/uploads/photos", route: UploadRoutes },
   { path: "/trips", route: TripRoutes },
   { path: "/profile", route: ProfileRoutes },
@@ -20,5 +22,4 @@ const moduleRoutes: { path: string; route: Router }[] = [
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));
-
 export default router;
