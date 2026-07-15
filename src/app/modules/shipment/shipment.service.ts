@@ -289,10 +289,55 @@ const deleteShipment = async (id: string, user: User) => {
   return result;
 };
 
+const getShipmentDetails = async (id: string, user: User) => {
+  const result = await prisma.shipment.findFirst({
+    where: { id, userId: user.role !== "admin" ? user.id : undefined },
+    include: { category: true },
+  });
+
+  if (!result) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
+  }
+
+  let tripData = null;
+
+  if (result.tripId) {
+    const trip = await prisma.trip.findUnique({
+      where: { id: result.tripId },
+      include: {
+        shipments: { select: { weight: true } },
+      },
+    });
+
+    if (trip) {
+      tripData = {
+        id: trip.id,
+        flightNumber: trip.flightNumber,
+        fromCountry: trip.fromCountry,
+        toCountry: trip.toCountry,
+        flightDate: trip.flightDate,
+        flightTime: trip.flightTime,
+        airportArrivalTime: trip.airportArrivalTime,
+        status: trip.status,
+        ...(trip.userId === user.id
+          ? {
+              totalCapacity: trip.cabinBagCapacity + trip.checkInBagCapacity,
+              remainingCapacity:
+                trip.remainingCabinCapacity + trip.remainingCheckInCapacity,
+            }
+          : {}),
+      };
+    }
+  }
+
+  return { ...result, trip: tripData };
+};
+
 export const ShipmentService = {
   createShipment,
   getShipments,
   getShipmentById,
+  getShipmentDetails,
   getShipmentSteps,
   updateShipment,
   deleteShipment,
