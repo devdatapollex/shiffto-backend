@@ -21,6 +21,8 @@ router.get("/", authGuard(), ShipmentController.getShipments);
 
 router.get("/:id/steps", authGuard(), ShipmentController.getShipmentSteps);
 
+router.get("/:id/details", authGuard(), ShipmentController.getShipmentDetails);
+
 router.get("/:id", authGuard(), ShipmentController.getShipmentById);
 
 router.patch(
