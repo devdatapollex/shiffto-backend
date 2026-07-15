@@ -17,7 +17,7 @@ http:
         "weight": 5,
         "quantity": 2,
         "description": "A laptop for international shipping",
-        "itemPhotos": [],
+        "itemPhotos": ["dummy url"],
         "instructions": "Handle with care",
         "fromCountry": "US",
         "toCountry": "BD",

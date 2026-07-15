@@ -1,0 +1,31 @@
+info:
+  name: Submit KYC
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/profile/kyc"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "documentType": "PASSPORT",
+        "documentNumber": "AB1234567",
+        "nationality": "US",
+        "phoneNumber": "+1234567890",
+        "frontPhotoUrl": "https://example.com/front.jpg",
+        "frontPhotoKey": "kyc/abc123-front.jpg",
+        "backPhotoUrl": "https://example.com/back.jpg",
+        "backPhotoKey": "kyc/abc123-back.jpg"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
