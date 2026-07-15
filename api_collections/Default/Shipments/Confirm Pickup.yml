@@ -1,0 +1,25 @@
+info:
+  name: Confirm Pickup
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/shipments/{{shipmentId}}/steps/confirm-pickup"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "photoUrl": "https://example.com/pickup-photo.jpg",
+        "notes": "Package picked up successfully"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

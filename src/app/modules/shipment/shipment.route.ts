@@ -4,8 +4,12 @@ import kycGuard from "../../middlewares/kycGuard";
 import validateRequest from "../../middlewares/validateRequest";
 import { ShipmentController } from "./shipment.controller";
 import { ShipmentValidation } from "./shipment.validation";
+import { ShipmentStepRoutes } from "./shipment-step.routes";
 
 const router = express.Router();
+
+// Mount step progression routes
+router.use(ShipmentStepRoutes);
 
 router.post(
   "/",

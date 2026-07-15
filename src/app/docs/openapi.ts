@@ -351,7 +351,8 @@ export const openapiDoc = {
                     type: "array",
                     items: { type: "string", format: "binary" },
                     maxItems: 10,
-                    description: "Images to upload (jpg, jpeg, png, webp, max 5MB each)",
+                    description:
+                      "Images to upload (jpg, jpeg, png, webp, max 5MB each)",
                   },
                 },
               },
@@ -359,8 +360,12 @@ export const openapiDoc = {
           },
         },
         responses: {
-          "201": { description: "Photos uploaded, returns array of { key, url }" },
-          "400": { description: "Invalid file type, size, or no files provided" },
+          "201": {
+            description: "Photos uploaded, returns array of { key, url }",
+          },
+          "400": {
+            description: "Invalid file type, size, or no files provided",
+          },
           "401": { description: "Not authenticated" },
           "403": { description: "Email verification required" },
         },
@@ -549,7 +554,13 @@ export const openapiDoc = {
                   weight: { type: "number", example: 5 },
                   quantity: { type: "integer", example: 2 },
                   description: { type: "string" },
-                  itemPhotos: { type: "array", items: { type: "string" }, maxItems: 10, description: "Upload photo URLs (from POST /api/v1/uploads/photos), max 10" },
+                  itemPhotos: {
+                    type: "array",
+                    items: { type: "string" },
+                    maxItems: 10,
+                    description:
+                      "Upload photo URLs (from POST /api/v1/uploads/photos), max 10",
+                  },
                   instructions: { type: "string" },
                   fromCountry: { type: "string", example: "US" },
                   toCountry: { type: "string", example: "BD" },
@@ -617,7 +628,13 @@ export const openapiDoc = {
                   weight: { type: "number" },
                   quantity: { type: "integer" },
                   description: { type: "string" },
-                  itemPhotos: { type: "array", items: { type: "string" }, maxItems: 10, description: "Upload photo URLs (from POST /api/v1/uploads/photos), max 10" },
+                  itemPhotos: {
+                    type: "array",
+                    items: { type: "string" },
+                    maxItems: 10,
+                    description:
+                      "Upload photo URLs (from POST /api/v1/uploads/photos), max 10",
+                  },
                   instructions: { type: "string" },
                   fromCountry: { type: "string" },
                   toCountry: { type: "string" },
@@ -651,6 +668,276 @@ export const openapiDoc = {
         ],
         responses: {
           "200": { description: "Shipment deleted" },
+          "404": { description: "Shipment not found" },
+        },
+      },
+    },
+    "/api/v1/shipments/{id}/confirm-payment": {
+      post: {
+        summary: "Confirm payment for a shipment",
+        operationId: "confirmPayment",
+        tags: ["Shipments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "Payment confirmed, shipment activated" },
+          "400": { description: "Shipment not in AWAITING_MATCH status" },
+          "401": { description: "Not authenticated" },
+          "403": { description: "Access denied" },
+          "404": { description: "Shipment not found" },
+        },
+      },
+    },
+    "/api/v1/shipments/{id}/send-delivery-otp": {
+      post: {
+        summary: "Send delivery OTP to shipment owner",
+        operationId: "sendDeliveryOtp",
+        tags: ["Shipments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "OTP sent to shipment owner's email" },
+          "401": { description: "Not authenticated" },
+          "404": { description: "Shipment not found" },
+        },
+      },
+    },
+    "/api/v1/shipments/{id}/steps/confirm-pickup": {
+      post: {
+        summary: "Confirm pickup (step 2 to 3)",
+        operationId: "confirmPickup",
+        tags: ["Shipments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["photoUrl"],
+                properties: {
+                  photoUrl: {
+                    type: "string",
+                    description: "Photo proof of pickup",
+                  },
+                  notes: { type: "string", description: "Optional notes" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Pickup confirmed" },
+          "400": { description: "Invalid step or missing requirements" },
+          "401": { description: "Not authenticated" },
+          "403": { description: "Access denied" },
+          "404": { description: "Shipment not found" },
+        },
+      },
+    },
+    "/api/v1/shipments/{id}/steps/confirm-checkin": {
+      post: {
+        summary: "Confirm check-in (step 3 to 4)",
+        operationId: "confirmCheckin",
+        tags: ["Shipments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  notes: { type: "string", description: "Optional notes" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Check-in confirmed" },
+          "400": { description: "Invalid step" },
+          "401": { description: "Not authenticated" },
+          "403": { description: "Access denied" },
+          "404": { description: "Shipment not found" },
+        },
+      },
+    },
+    "/api/v1/shipments/{id}/steps/confirm-transit": {
+      post: {
+        summary: "Confirm in-transit (step 4 to 5)",
+        operationId: "confirmTransit",
+        tags: ["Shipments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  notes: { type: "string", description: "Optional notes" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Transit confirmed" },
+          "400": { description: "Invalid step" },
+          "401": { description: "Not authenticated" },
+          "403": { description: "Access denied" },
+          "404": { description: "Shipment not found" },
+        },
+      },
+    },
+    "/api/v1/shipments/{id}/steps/confirm-arrival": {
+      post: {
+        summary: "Confirm arrival at destination (step 5 to 6)",
+        operationId: "confirmArrival",
+        tags: ["Shipments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  notes: { type: "string", description: "Optional notes" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Arrival confirmed" },
+          "400": { description: "Invalid step" },
+          "401": { description: "Not authenticated" },
+          "403": { description: "Access denied" },
+          "404": { description: "Shipment not found" },
+        },
+      },
+    },
+    "/api/v1/shipments/{id}/steps/confirm-out-for-delivery": {
+      post: {
+        summary: "Confirm out for delivery (step 6 to 7)",
+        operationId: "confirmOutForDelivery",
+        tags: ["Shipments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  notes: { type: "string", description: "Optional notes" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Out for delivery confirmed" },
+          "400": { description: "Invalid step" },
+          "401": { description: "Not authenticated" },
+          "403": { description: "Access denied" },
+          "404": { description: "Shipment not found" },
+        },
+      },
+    },
+    "/api/v1/shipments/{id}/steps/confirm-delivery": {
+      post: {
+        summary: "Confirm delivery (final step, requires OTP + photo)",
+        operationId: "confirmDelivery",
+        tags: ["Shipments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["otp", "photoUrl"],
+                properties: {
+                  otp: {
+                    type: "string",
+                    description: "6-digit OTP from shipment owner",
+                  },
+                  photoUrl: {
+                    type: "string",
+                    description: "Photo proof of delivery",
+                  },
+                  notes: { type: "string", description: "Optional notes" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Delivery confirmed, shipment completed" },
+          "400": { description: "Invalid OTP or step" },
+          "401": { description: "Not authenticated" },
+          "403": { description: "Access denied" },
           "404": { description: "Shipment not found" },
         },
       },
