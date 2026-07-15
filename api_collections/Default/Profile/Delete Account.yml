@@ -1,0 +1,24 @@
+info:
+  name: Delete Account
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/profile/delete"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "password": "currentpass123"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

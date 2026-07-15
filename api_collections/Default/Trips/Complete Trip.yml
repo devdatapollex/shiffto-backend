@@ -1,0 +1,18 @@
+info:
+  name: Complete Trip
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/trips/{{tripId}}/complete"
+  headers:
+    - name: Content-Type
+      value: application/json
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
