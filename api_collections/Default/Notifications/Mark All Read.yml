@@ -1,0 +1,15 @@
+info:
+  name: Mark All Read
+  type: http
+  seq: 2
+
+http:
+  method: PATCH
+  url: "{{localurl}}/api/v1/notifications/read-all"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

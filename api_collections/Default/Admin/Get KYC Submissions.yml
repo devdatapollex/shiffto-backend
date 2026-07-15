@@ -1,0 +1,15 @@
+info:
+  name: Get KYC Submissions
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{localurl}}/api/v1/admin/kyc"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
