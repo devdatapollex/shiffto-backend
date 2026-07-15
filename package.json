@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "npx prisma generate && tsc",
+    "build": "npx prisma generate && tsc && npx esbuild src/app.ts --bundle --platform=node --target=node20 --format=esm --packages=external --outfile=dist/app.js",
     "start": "tsx src/server.ts",
     "prepare": "husky",
     "format": "prettier --write .",
