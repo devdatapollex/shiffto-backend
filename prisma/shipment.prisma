@@ -40,7 +40,7 @@ model Shipment {
   trip            Trip?            @relation(fields: [tripId], references: [id])
   user            User             @relation(fields: [userId], references: [id])
 
-  status        ShipmentStatus @default(AWAITING_MATCH)
+  status ShipmentStatus @default(AWAITING_MATCH)
 
   shipmentSteps ShipmentStep[] @relation("ShipmentSteps")
 
@@ -61,39 +61,38 @@ enum shipmentStepStage {
 }
 
 model StepDefinition {
-  id          String             @id @default(uuid(7))
-  stage       shipmentStepStage  @unique
+  id          String            @id @default(uuid(7))
+  stage       shipmentStepStage @unique
   label       String
-  order       Int                @unique
+  order       Int               @unique
   description String?
-  steps       ShipmentStep[]     @relation("StepDefinitions")
+  steps       ShipmentStep[]    @relation("StepDefinitions")
 
   @@map("step_definitions")
 }
 
 model ShipmentStep {
-  id           String             @id @default(uuid(7))
-  shipment     Shipment           @relation("ShipmentSteps", fields: [shipmentId], references: [id], onDelete: Cascade)
-  shipmentId   String
+  id         String   @id @default(uuid(7))
+  shipment   Shipment @relation("ShipmentSteps", fields: [shipmentId], references: [id], onDelete: Cascade)
+  shipmentId String
 
-  definition   StepDefinition     @relation("StepDefinitions", fields: [definitionId], references: [id])
+  definition   StepDefinition    @relation("StepDefinitions", fields: [definitionId], references: [id])
   definitionId String
   stage        shipmentStepStage
 
-  order        Int
-  completedAt  DateTime?
-  isCurrent    Boolean            @default(false)
-  notes        String?
+  order       Int
+  completedAt DateTime?
+  isCurrent   Boolean   @default(false)
+  notes       String?
 
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-
-  @@unique([shipmentId, order])
-  @@index([shipmentId, order])
-  @@index([shipmentId, isCurrent])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
   // Note: a partial unique index on (shipmentId) WHERE isCurrent = true
   // is enforced at the DB level via raw SQL in the migration (see PARTIAL-INDEX-PLAN).
   // Prisma's schema language does not support partial indexes — preserve it manually.
-
+  @@unique([shipmentId, order])
+  @@index([shipmentId, order])
+  @@index([shipmentId, isCurrent])
   @@map("shipment_steps")
 }

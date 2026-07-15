@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
-    "seed:admin": "tsx prisma/seeds/admin.ts"
+    "seed:admin": "tsx prisma/seeds/admin.ts",
+    "seed:steps": "tsx prisma/seeds/step-definitions.ts"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -32,6 +33,7 @@
     "@better-auth/prisma-adapter": "^1.6.23",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.8.0",
+    "@types/handlebars": "^4.0.40",
     "auth": "^1.6.23",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.23",
@@ -40,6 +42,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^10.6.0",
     "express": "^5.1.0",
+    "handlebars": "^4.7.9",
     "http-status": "^2.1.0",
     "husky": "^9.1.7",
     "jsonwebtoken": "^9.0.3",

@@ -80,12 +80,31 @@ const createShipment = async (
 
     validateConstraints(shipmentData, category);
 
-    return tx.shipment.create({
+    const shipment = await tx.shipment.create({
       data: {
         ...shipmentData,
         itemPhotos: shipmentData.itemPhotos ?? [],
         userId: user.id,
       },
+    });
+
+    const definitions = await tx.stepDefinition.findMany({
+      orderBy: { order: "asc" },
+    });
+
+    await tx.shipmentStep.createMany({
+      data: definitions.map((def) => ({
+        shipmentId: shipment.id,
+        definitionId: def.id,
+        stage: def.stage,
+        order: def.order,
+        isCurrent: def.order === 2,
+        completedAt: def.order === 1 ? new Date() : null,
+      })),
+    });
+
+    return tx.shipment.findUnique({
+      where: { id: shipment.id },
       include: { category: true },
     });
   });
@@ -94,10 +113,12 @@ const createShipment = async (
 };
 
 const getShipments = async (query: Record<string, unknown>, user: User) => {
-  const { page, limit, skip } = paginationHelpers.calculatePagination(query);
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelpers.calculatePagination(query);
 
   const where: any = {};
 
+  // Available shipments filter (browse page)
   if (query.type === "available") {
     where.tripId = null;
     if (query.fromCountry) {
@@ -112,19 +133,49 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
         mode: "insensitive",
       };
     }
-  } else if (user.role !== "admin") {
-    where.userId = user.id;
-  } else {
-    if (query.userId) {
-      where.userId = query.userId as string;
-    }
   }
+
+  // Role-based user filter
+  if (user.role !== "admin") {
+    where.userId = user.id;
+  } else if (query.userId) {
+    where.userId = query.userId as string;
+  }
+
+  // Status filter
+  if (query.status) {
+    where.status = query.status as string;
+  }
+
+  // Search across multiple fields
+  if (query.search) {
+    const searchTerm = query.search as string;
+    where.OR = [
+      { itemName: { contains: searchTerm, mode: "insensitive" } },
+      { description: { contains: searchTerm, mode: "insensitive" } },
+      { receiverName: { contains: searchTerm, mode: "insensitive" } },
+      { fromCountry: { contains: searchTerm, mode: "insensitive" } },
+      { toCountry: { contains: searchTerm, mode: "insensitive" } },
+    ];
+  }
+
+  // Dynamic sort with whitelist
+  const allowedSortFields = [
+    "itemName",
+    "pricePerKg",
+    "fromCountry",
+    "toCountry",
+    "createdAt",
+    "status",
+    "weight",
+  ];
+  const sortField = allowedSortFields.includes(sortBy) ? sortBy : "itemName";
 
   const result = await prisma.shipment.findMany({
     where,
     skip,
     take: limit,
-    orderBy: { itemName: "asc" },
+    orderBy: { [sortField]: sortOrder },
     include: { category: true },
   });
 
@@ -144,6 +195,29 @@ const getShipmentById = async (id: string, user: User) => {
   }
 
   return result;
+};
+
+const getShipmentSteps = async (shipmentId: string, user: User) => {
+  const shipment = await prisma.shipment.findUnique({
+    where: { id: shipmentId },
+    select: { id: true, userId: true },
+  });
+
+  if (!shipment) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
+  }
+
+  if (user.role !== "admin" && shipment.userId !== user.id) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
+  }
+
+  const steps = await prisma.shipmentStep.findMany({
+    where: { shipmentId },
+    include: { definition: true },
+    orderBy: { order: "asc" },
+  });
+
+  return steps;
 };
 
 const updateShipment = async (
@@ -219,6 +293,7 @@ export const ShipmentService = {
   createShipment,
   getShipments,
   getShipmentById,
+  getShipmentSteps,
   updateShipment,
   deleteShipment,
 };

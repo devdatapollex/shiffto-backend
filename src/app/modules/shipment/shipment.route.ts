@@ -19,6 +19,8 @@ router.post("/send-otp", authGuard(), ShipmentController.sendShipmentOtp);
 
 router.get("/", authGuard(), ShipmentController.getShipments);
 
+router.get("/:id/steps", authGuard(), ShipmentController.getShipmentSteps);
+
 router.get("/:id", authGuard(), ShipmentController.getShipmentById);
 
 router.patch(
