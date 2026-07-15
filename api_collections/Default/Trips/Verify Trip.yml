@@ -1,18 +1,20 @@
 info:
-  name: Confirm Payment
+  name: Verify Trip
   type: http
   seq: 6
 
 http:
   method: POST
-  url: "{{localurl}}/api/v1/shipments/:shipmentId/confirm-payment"
+  url: "{{localurl}}/api/v1/trips/{{tripId}}/verify"
   headers:
     - name: Content-Type
       value: application/json
-  params:
-    - name: shipmentId
-      value: 019f5fdb-b682-7304-b81b-d624e30fed22
-      type: path
+  body:
+    type: json
+    data: |-
+      {
+        "approved": true
+      }
   auth: inherit
 
 settings:

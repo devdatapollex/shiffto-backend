@@ -1,0 +1,15 @@
+info:
+  name: Reactivate User
+  type: http
+  seq: 3
+
+http:
+  method: PATCH
+  url: "{{localurl}}/api/v1/admin/users/{{userId}}/reactivate"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

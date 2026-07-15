@@ -1,18 +1,14 @@
 info:
-  name: Confirm Payment
+  name: Send Shipment OTP
   type: http
-  seq: 6
+  seq: 9
 
 http:
   method: POST
-  url: "{{localurl}}/api/v1/shipments/:shipmentId/confirm-payment"
+  url: "{{localurl}}/api/v1/shipments/send-otp"
   headers:
     - name: Content-Type
       value: application/json
-  params:
-    - name: shipmentId
-      value: 019f5fdb-b682-7304-b81b-d624e30fed22
-      type: path
   auth: inherit
 
 settings:

@@ -442,3 +442,42 @@ Notes:
 - Delivery requires OTP verification: traveler calls `send-delivery-otp`, OTP sent to sender, receiver shares OTP with traveler, traveler submits with photo.
 - Shipment status transitions: AWAITING_MATCH → ACTIVE (on payment), ACTIVE → DELIVERED (on delivery).
 - Cancellation not allowed after pickup.
+
+## OpenAPI Documentation Completion
+
+Status: Completed
+Started: 2026-07-15
+Completed: 2026-07-15
+
+Scope:
+
+- Add all missing API endpoints to the OpenAPI spec in `src/app/docs/openapi.ts`.
+- Add `components.securitySchemes.bearerAuth` (referenced by paths but undefined).
+- Fix incorrect `admin only` label on shipment categories list endpoint.
+
+Completed Work:
+
+- Added `bearerAuth` security scheme component to OpenAPI spec.
+- Added missing Shipment endpoints: `POST /api/v1/shipments/send-otp`, `GET /api/v1/shipments/{id}/steps`, `GET /api/v1/shipments/{id}/details`.
+- Added Trip module (8 endpoints): create, list, get by id, update, cancel, verify (admin), accept-shipment, complete.
+- Added Profile module (6 endpoints): get, update, change-password, submit kyc, deactivate, delete.
+- Added Admin module (3 endpoints): list KYC submissions, review KYC, reactivate user.
+- Added Notification module (3 endpoints): list, mark one read, mark all read.
+- Added Step Definition module (2 endpoints): list, update (admin).
+- Fixed Shipment Categories `GET /` summary — it is not admin-only.
+- Added API collection YAML files for all newly documented modules:
+  - `Shipments/`: Send Shipment OTP, Get Shipment Steps, Get Shipment Details
+  - `Trips/`: 8 files (Create, Get Trips, Get Trip, Update, Cancel, Verify, Accept Shipment, Complete)
+  - `Profile/`: 6 files (Get, Update, Change Password, Submit KYC, Deactivate, Delete)
+  - `Admin/`: 3 files (Get KYC Submissions, Review KYC, Reactivate User)
+  - `Notifications/`: 3 files (Get, Mark All Read, Mark Notification Read)
+  - `StepDefinitions/`: 2 files (Get, Update)
+
+Verification:
+
+- `npx tsc --noEmit` completed successfully.
+- `npx vitest run` completed successfully: 78 tests passed across 13 files.
+
+Notes:
+
+- Previously undocumented modules (Trips, Profile, Admin, Notifications, Step Definitions) now have full OpenAPI descriptions and API collection files with realistic request bodies.
