@@ -33,10 +33,20 @@ const mockVerification = {
   update: vi.fn(),
 };
 
+const mockStepDefinition = {
+  findMany: vi.fn(),
+};
+
+const mockShipmentStep = {
+  createMany: vi.fn(),
+};
+
 const mockPrisma = {
   shipment: mockShipment,
   shipmentCategory: mockCategory,
   verification: mockVerification,
+  stepDefinition: mockStepDefinition,
+  shipmentStep: mockShipmentStep,
   $transaction: vi.fn((cb: (tx: typeof mockPrisma) => Promise<unknown>) =>
     cb(mockPrisma),
   ),
@@ -70,6 +80,58 @@ const mockUser = {
   role: "user" as const,
 };
 
+const mockDefinitions = [
+  {
+    id: "def-1",
+    stage: "PAYMENT_CONFIRMED" as const,
+    order: 1,
+    label: "Payment confirmed",
+    description: null,
+  },
+  {
+    id: "def-2",
+    stage: "PICKED_UP" as const,
+    order: 2,
+    label: "Picked up",
+    description: null,
+  },
+  {
+    id: "def-3",
+    stage: "CHECKED_IN" as const,
+    order: 3,
+    label: "Checked in",
+    description: null,
+  },
+  {
+    id: "def-4",
+    stage: "IN_TRANSIT" as const,
+    order: 4,
+    label: "In transit",
+    description: "Flight is on the way to destination",
+  },
+  {
+    id: "def-5",
+    stage: "ARRIVED_AT_DESTINATION" as const,
+    order: 5,
+    label: "Arrived at destination",
+    description: null,
+  },
+  {
+    id: "def-6",
+    stage: "OUT_FOR_DELIVERY" as const,
+    order: 6,
+    label: "Out for delivery",
+    description: null,
+  },
+  {
+    id: "def-7",
+    stage: "DELIVERED" as const,
+    order: 7,
+    label: "Delivered",
+    description: null,
+  },
+];
+
 const validOtpRecord = {
   id: "otp-1",
   identifier: "shipment-verification-otp-user@example.com",
@@ -85,6 +147,8 @@ describe("ShipmentService", () => {
     );
     mockVerification.findFirst.mockResolvedValue(validOtpRecord);
     mockVerification.delete.mockResolvedValue(validOtpRecord);
+    mockStepDefinition.findMany.mockResolvedValue(mockDefinitions);
+    mockShipmentStep.createMany.mockResolvedValue({ count: 7 });
   });
 
   const importService = () =>
@@ -104,6 +168,12 @@ describe("ShipmentService", () => {
         ...fullData,
         userId,
       });
+      mockShipment.findUnique.mockResolvedValue({
+        id: "ship-1",
+        ...fullData,
+        userId,
+        category: { id: "cat-1", name: "Electronics" },
+      });
 
       const { ShipmentService } = await importService();
       const result = await ShipmentService.createShipment(fullData, mockUser);
@@ -112,11 +182,35 @@ describe("ShipmentService", () => {
 
       expect(result.id).toBe("ship-1");
       expect(mockShipment.create).toHaveBeenCalledWith({
-        data: { ...shipmentData, userId },
-        include: { category: true },
+        data: {
+          ...shipmentData,
+          itemPhotos: shipmentData.itemPhotos ?? [],
+          userId,
+        },
       });
-      const createCallData = mockShipment.create.mock.calls[0][0].data;
-      expect(createCallData).not.toHaveProperty("otp");
+      expect(mockStepDefinition.findMany).toHaveBeenCalledWith({
+        orderBy: { order: "asc" },
+      });
+      expect(mockShipmentStep.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            shipmentId: "ship-1",
+            definitionId: "def-1",
+            stage: "PAYMENT_CONFIRMED",
+            order: 1,
+            isCurrent: false,
+            completedAt: expect.any(Date),
+          }),
+          expect.objectContaining({
+            shipmentId: "ship-1",
+            definitionId: "def-2",
+            stage: "PICKED_UP",
+            order: 2,
+            isCurrent: true,
+            completedAt: null,
+          }),
+        ]),
+      });
     });
 
     it("does not include otp in the persisted shipment", async () => {
@@ -125,6 +219,10 @@ describe("ShipmentService", () => {
         minPrice: 10,
       });
       mockShipment.create.mockResolvedValue({ id: "ship-1" });
+      mockShipment.findUnique.mockResolvedValue({
+        id: "ship-1",
+        category: { id: "cat-1", name: "Electronics" },
+      });
 
       const { ShipmentService } = await importService();
       await ShipmentService.createShipment(fullData, mockUser);
@@ -137,6 +235,10 @@ describe("ShipmentService", () => {
     it("consumes the OTP after a successful create", async () => {
       mockCategory.findUnique.mockResolvedValue({ id: "cat-1", minPrice: 10 });
       mockShipment.create.mockResolvedValue({ id: "ship-1" });
+      mockShipment.findUnique.mockResolvedValue({
+        id: "ship-1",
+        category: { id: "cat-1", name: "Electronics" },
+      });
 
       const { ShipmentService } = await importService();
       await ShipmentService.createShipment(fullData, mockUser);
@@ -290,6 +392,126 @@ describe("ShipmentService", () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId },
+        }),
+      );
+    });
+
+    it("admin without params returns all shipments (no userId filter)", async () => {
+      const adminUser = { ...mockUser, role: "admin" as const };
+      mockShipment.findMany.mockResolvedValue([
+        { id: "ship-1" },
+        { id: "ship-2" },
+      ]);
+      mockShipment.count.mockResolvedValue(2);
+
+      const { ShipmentService } = await importService();
+      const result = await ShipmentService.getShipments({}, adminUser);
+
+      expect(result.data).toHaveLength(2);
+      expect(result.meta.total).toBe(2);
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {},
+        }),
+      );
+    });
+
+    it("admin with userId param filters by that user", async () => {
+      const adminUser = { ...mockUser, role: "admin" as const };
+      mockShipment.findMany.mockResolvedValue([{ id: "ship-1" }]);
+      mockShipment.count.mockResolvedValue(1);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments(
+        { userId: "other-user-id" },
+        adminUser,
+      );
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: "other-user-id" },
+        }),
+      );
+    });
+
+    it("status param filters by shipment status", async () => {
+      mockShipment.findMany.mockResolvedValue([
+        { id: "ship-1", status: "active" },
+      ]);
+      mockShipment.count.mockResolvedValue(1);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments({ status: "active" }, mockUser);
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId, status: "active" },
+        }),
+      );
+    });
+
+    it("search param creates OR filter across multiple fields", async () => {
+      mockShipment.findMany.mockResolvedValue([{ id: "ship-1" }]);
+      mockShipment.count.mockResolvedValue(1);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments({ search: "laptop" }, mockUser);
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId,
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                itemName: expect.objectContaining({ contains: "laptop" }),
+              }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it("sortBy and sortOrder params control ordering", async () => {
+      mockShipment.findMany.mockResolvedValue([]);
+      mockShipment.count.mockResolvedValue(0);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments(
+        { sortBy: "pricePerKg", sortOrder: "desc" },
+        mockUser,
+      );
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { pricePerKg: "desc" },
+        }),
+      );
+    });
+
+    it("invalid sortBy falls back to itemName with default desc order", async () => {
+      mockShipment.findMany.mockResolvedValue([]);
+      mockShipment.count.mockResolvedValue(0);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments({ sortBy: "invalidField" }, mockUser);
+
+      expect(mockShipment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { itemName: "desc" },
+        }),
+      );
+    });
+
+    it("non-admin always filters by own userId regardless of query.userId", async () => {
+      mockShipment.findMany.mockResolvedValue([]);
+      mockShipment.count.mockResolvedValue(0);
+
+      const { ShipmentService } = await importService();
+      await ShipmentService.getShipments({ userId: "other-user-id" }, mockUser);
+
       expect(mockShipment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId },
