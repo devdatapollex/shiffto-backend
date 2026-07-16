@@ -5,6 +5,7 @@ import { User } from "../../lib/auth";
 import { sendEmail } from "../../lib/email";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 import config from "../../../config";
+import { ShipmentStatus } from "../../../generated/prisma/enums";
 
 const createTrip = async (data: any, user: User) => {
   const tripDate = new Date(data.flightDate);
@@ -24,7 +25,7 @@ const createTrip = async (data: any, user: User) => {
       checkInBagCapacity: data.checkInBagCapacity,
       remainingCabinCapacity: data.cabinBagCapacity,
       remainingCheckInCapacity: data.checkInBagCapacity,
-      ticketPhoto: data.ticketPhoto,
+      ticketPhoto: data.ticketPhoto || null,
       userId: user.id,
       status: "PENDING",
     },
@@ -524,6 +525,71 @@ const completeTrip = async (id: string, user: User) => {
   return result;
 };
 
+const getAvailableShipments = async (
+  query: Record<string, unknown>,
+  user: User,
+) => {
+  const { page, limit, skip } = paginationHelpers.calculatePagination(query);
+
+  // 1. Fetch user's active trips to get their route pairs
+  const activeTrips = await prisma.trip.findMany({
+    where: {
+      userId: user.id,
+      status: "ACTIVE",
+    },
+    select: {
+      fromCountry: true,
+      toCountry: true,
+    },
+  });
+
+  // 2. If no active trips, return empty response immediately
+  if (activeTrips.length === 0) {
+    return {
+      meta: {
+        page,
+        limit,
+        total: 0,
+      },
+      data: [],
+    };
+  }
+
+  // 3. Build route filters (exact fromCountry & toCountry match)
+  const routeFilters = activeTrips.map((trip) => ({
+    fromCountry: { equals: trip.fromCountry, mode: "insensitive" as const },
+    toCountry: { equals: trip.toCountry, mode: "insensitive" as const },
+  }));
+
+  const where: any = {
+    tripId: null,
+    status: ShipmentStatus.AWAITING_MATCH,
+    userId: { not: user.id }, // prevent matching own shipments
+    OR: routeFilters,
+  };
+
+  const data = await prisma.shipment.findMany({
+    where,
+    skip,
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: {
+      category: true,
+    },
+  });
+
+  const total = await prisma.shipment.count({ where });
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+    },
+    data,
+  };
+};
+
 export const TripService = {
   createTrip,
   getTrips,
@@ -533,4 +599,5 @@ export const TripService = {
   verifyTrip,
   acceptShipment,
   completeTrip,
+  getAvailableShipments,
 };
