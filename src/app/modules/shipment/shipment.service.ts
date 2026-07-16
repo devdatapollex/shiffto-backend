@@ -150,7 +150,9 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
   // Search across multiple fields
   if (query.search) {
     const searchTerm = query.search as string;
+    const cleanSearchTerm = searchTerm.toUpperCase().replace(/^SH-?/, "");
     where.OR = [
+      { id: { contains: cleanSearchTerm, mode: "insensitive" } },
       { itemName: { contains: searchTerm, mode: "insensitive" } },
       { description: { contains: searchTerm, mode: "insensitive" } },
       { receiverName: { contains: searchTerm, mode: "insensitive" } },
