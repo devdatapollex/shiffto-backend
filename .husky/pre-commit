@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -e
+
+echo "Formatting staged files..."
+npx lint-staged
+
+echo "Running TypeScript type check..."
+npm run typecheck

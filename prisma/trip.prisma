@@ -1,0 +1,24 @@
+model Trip {
+  id                       String     @id @default(uuid(7))
+  flightNumber             String
+  fromCountry              String
+  toCountry                String
+  flightDate               DateTime
+  flightTime               String
+  airportArrivalTime       String?
+  cabinBagCapacity         Float
+  checkInBagCapacity       Float
+  remainingCabinCapacity   Float
+  remainingCheckInCapacity Float
+  ticketPhoto              String?
+  status                   String     @default("PENDING")
+  rejectionReason          String?
+  userId                   String
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
+  shipments                Shipment[]
+  offers                   Offer[]
+  user                     User       @relation(fields: [userId], references: [id])
+
+  @@map("trips")
+}

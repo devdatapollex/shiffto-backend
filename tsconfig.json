@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "types": ["node"],
+
+    /* Modules */
+    "module": "ESNext",
+    /* Standard for modern ESM in Node.js */
+    "moduleResolution": "bundler",
+    /* Works in tandem with module to enforce real Node.js imports */
+
+    "sourceMap": true,
+    /* Generates corresponding '.map' file for production debugging */
+    "removeComments": true,
+    /* Strips comments to slightly optimize file payload sizing */
+
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
+    "noUnusedLocals": false,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": false,
+
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"],
+  /* Only compile code found inside the source directory */
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
+  /* Explicitly skip node modules, build folder, and testing files */
+}
