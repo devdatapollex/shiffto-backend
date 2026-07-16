@@ -2,9 +2,20 @@ import prisma from "../../lib/prisma";
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { User } from "../../lib/auth";
+import { ShipmentStep, Prisma } from "../../../generated/prisma/client";
+import {
+  ShipmentStatus,
+  shipmentStepStage,
+} from "../../../generated/prisma/enums";
 
-const confirmPayment = async (shipmentId: string, user: User) => {
-  const shipment = await prisma.shipment.findUnique({
+const confirmPayment = async (
+  shipmentId: string,
+  user: User,
+  tx?: Prisma.TransactionClient,
+) => {
+  const client = tx || prisma;
+
+  const shipment = await client.shipment.findUnique({
     where: { id: shipmentId },
     include: {
       shipmentSteps: {
@@ -21,7 +32,7 @@ const confirmPayment = async (shipmentId: string, user: User) => {
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
   }
 
-  if (shipment.status !== "AWAITING_MATCH") {
+  if (shipment.status !== ShipmentStatus.AWAITING_MATCH) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       "Shipment is not in AWAITING_MATCH status",
@@ -29,10 +40,10 @@ const confirmPayment = async (shipmentId: string, user: User) => {
   }
 
   const paymentStep = shipment.shipmentSteps.find(
-    (s) => s.stage === "PAYMENT_CONFIRMED",
+    (s: ShipmentStep) => s.stage === shipmentStepStage.PAYMENT_CONFIRMED,
   );
   const pickupStep = shipment.shipmentSteps.find(
-    (s) => s.stage === "PICKED_UP",
+    (s: ShipmentStep) => s.stage === shipmentStepStage.PICKED_UP,
   );
 
   if (!paymentStep || !pickupStep) {
@@ -46,38 +57,52 @@ const confirmPayment = async (shipmentId: string, user: User) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "Payment already confirmed");
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    await tx.shipmentStep.update({
+  const executeUpdates = async (
+    transactionClient: Prisma.TransactionClient,
+  ) => {
+    await transactionClient.shipmentStep.update({
       where: { id: paymentStep.id },
-      data: { completedAt: new Date() },
+      data: {
+        completedAt: new Date(),
+        isCurrent: false,
+      },
     });
 
-    await tx.shipmentStep.update({
+    await transactionClient.shipmentStep.update({
       where: { id: pickupStep.id },
       data: { isCurrent: true },
     });
 
-    await tx.shipment.update({
+    await transactionClient.shipment.update({
       where: { id: shipmentId },
-      data: { status: "ACTIVE" },
+      data: { status: ShipmentStatus.ACTIVE },
     });
 
-    return tx.shipmentStep.findMany({
+    return transactionClient.shipmentStep.findMany({
       where: { shipmentId },
       include: { definition: true },
       orderBy: { order: "asc" },
     });
-  });
+  };
 
-  return result;
+  if (tx) {
+    return executeUpdates(tx);
+  } else {
+    return prisma.$transaction(async (newTx) => {
+      return executeUpdates(newTx);
+    });
+  }
 };
 
 const advanceStep = async (
   shipmentId: string,
   user: User,
   options?: { notes?: string; photoUrl?: string },
+  tx?: Prisma.TransactionClient,
 ) => {
-  const shipment = await prisma.shipment.findUnique({
+  const client = tx || prisma;
+
+  const shipment = await client.shipment.findUnique({
     where: { id: shipmentId },
     include: {
       shipmentSteps: {
@@ -94,18 +119,20 @@ const advanceStep = async (
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
   }
 
-  if (shipment.status === "CANCELED") {
+  if (shipment.status === ShipmentStatus.CANCELED) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       "Cannot advance steps for a canceled shipment",
     );
   }
 
-  if (shipment.status === "DELIVERED") {
+  if (shipment.status === ShipmentStatus.DELIVERED) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Shipment is already delivered");
   }
 
-  const currentStep = shipment.shipmentSteps.find((s) => s.isCurrent);
+  const currentStep = shipment.shipmentSteps.find(
+    (s: ShipmentStep) => s.isCurrent,
+  );
 
   if (!currentStep) {
     throw new ApiError(
@@ -114,7 +141,7 @@ const advanceStep = async (
     );
   }
 
-  if (currentStep.stage === "DELIVERED") {
+  if (currentStep.stage === shipmentStepStage.DELIVERED) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       "Shipment is already at the final step",
@@ -122,7 +149,7 @@ const advanceStep = async (
   }
 
   const nextStep = shipment.shipmentSteps.find(
-    (s) => s.order === currentStep.order + 1,
+    (s: ShipmentStep) => s.order === currentStep.order + 1,
   );
 
   if (!nextStep) {
@@ -132,8 +159,10 @@ const advanceStep = async (
     );
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    await tx.shipmentStep.update({
+  const executeUpdates = async (
+    transactionClient: Prisma.TransactionClient,
+  ) => {
+    await transactionClient.shipmentStep.update({
       where: { id: currentStep.id },
       data: {
         isCurrent: false,
@@ -143,26 +172,32 @@ const advanceStep = async (
       },
     });
 
-    await tx.shipmentStep.update({
+    await transactionClient.shipmentStep.update({
       where: { id: nextStep.id },
       data: { isCurrent: true },
     });
 
-    if (nextStep.stage === "DELIVERED") {
-      await tx.shipment.update({
+    if (nextStep.stage === shipmentStepStage.DELIVERED) {
+      await transactionClient.shipment.update({
         where: { id: shipmentId },
-        data: { status: "DELIVERED" },
+        data: { status: ShipmentStatus.DELIVERED },
       });
     }
 
-    return tx.shipmentStep.findMany({
+    return transactionClient.shipmentStep.findMany({
       where: { shipmentId },
       include: { definition: true },
       orderBy: { order: "asc" },
     });
-  });
+  };
 
-  return result;
+  if (tx) {
+    return executeUpdates(tx);
+  } else {
+    return prisma.$transaction(async (newTx) => {
+      return executeUpdates(newTx);
+    });
+  }
 };
 
 export const ShipmentStepService = {

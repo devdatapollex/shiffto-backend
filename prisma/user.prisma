@@ -15,9 +15,10 @@ model User {
   accounts      Account[]
   notifications Notification[]
   sessions      Session[]
-  shipments     Shipment[]
-  trips         Trip[]
-  kyc           Kyc?
+  shipments       Shipment[]
+  trips           Trip[]
+  kyc             Kyc?
+  travellerOffers Offer[]    @relation("TravellerOffers")
 
   @@map("user")
 }

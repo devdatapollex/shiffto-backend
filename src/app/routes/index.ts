@@ -7,6 +7,7 @@ import { ProfileRoutes } from "../modules/profile/profile.route";
 import { AdminRoutes } from "../modules/admin/admin.route";
 import { NotificationRoutes } from "../modules/notification/notification.route";
 import { StepDefinitionRoutes } from "../modules/step-definition/step-definition.route";
+import { OfferRoutes } from "../modules/offer/offer.route";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/profile", route: ProfileRoutes },
   { path: "/admin", route: AdminRoutes },
   { path: "/notifications", route: NotificationRoutes },
+  { path: "/offers", route: OfferRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

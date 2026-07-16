@@ -98,8 +98,8 @@ const createShipment = async (
         definitionId: def.id,
         stage: def.stage,
         order: def.order,
-        isCurrent: def.order === 2,
-        completedAt: def.order === 1 ? new Date() : null,
+        isCurrent: def.order === 1,
+        completedAt: null,
       })),
     });
 

@@ -10,13 +10,14 @@ model Trip {
   checkInBagCapacity       Float
   remainingCabinCapacity   Float
   remainingCheckInCapacity Float
-  ticketPhoto              String
+  ticketPhoto              String?
   status                   String     @default("PENDING")
   rejectionReason          String?
   userId                   String
   createdAt                DateTime   @default(now())
   updatedAt                DateTime   @updatedAt
   shipments                Shipment[]
+  offers                   Offer[]
   user                     User       @relation(fields: [userId], references: [id])
 
   @@map("trips")
