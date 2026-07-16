@@ -202,14 +202,18 @@ const getShipmentById = async (id: string, user: User) => {
 const getShipmentSteps = async (shipmentId: string, user: User) => {
   const shipment = await prisma.shipment.findUnique({
     where: { id: shipmentId },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, trip: { select: { userId: true } } },
   });
 
   if (!shipment) {
     throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
-  if (user.role !== "admin" && shipment.userId !== user.id) {
+  if (
+    user.role !== "admin" &&
+    shipment.userId !== user.id &&
+    shipment.trip?.userId !== user.id
+  ) {
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
   }
 
@@ -293,8 +297,22 @@ const deleteShipment = async (id: string, user: User) => {
 
 const getShipmentDetails = async (id: string, user: User) => {
   const result = await prisma.shipment.findFirst({
-    where: { id, userId: user.role !== "admin" ? user.id : undefined },
-    include: { category: true },
+    where: {
+      id,
+      OR: user.role === "admin"
+        ? undefined
+        : [
+            { userId: user.id },
+            { trip: { userId: user.id } },
+          ],
+    },
+    include: {
+      category: true,
+      shipmentSteps: {
+        include: { definition: true },
+        orderBy: { order: "asc" },
+      },
+    },
   });
 
   if (!result) {
@@ -308,6 +326,15 @@ const getShipmentDetails = async (id: string, user: User) => {
       where: { id: result.tripId },
       include: {
         shipments: { select: { weight: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            phone: true,
+          },
+        },
       },
     });
 
@@ -321,13 +348,10 @@ const getShipmentDetails = async (id: string, user: User) => {
         flightTime: trip.flightTime,
         airportArrivalTime: trip.airportArrivalTime,
         status: trip.status,
-        ...(trip.userId === user.id
-          ? {
-              totalCapacity: trip.cabinBagCapacity + trip.checkInBagCapacity,
-              remainingCapacity:
-                trip.remainingCabinCapacity + trip.remainingCheckInCapacity,
-            }
-          : {}),
+        totalCapacity: trip.cabinBagCapacity + trip.checkInBagCapacity,
+        remainingCapacity:
+          trip.remainingCabinCapacity + trip.remainingCheckInCapacity,
+        user: trip.user,
       };
     }
   }

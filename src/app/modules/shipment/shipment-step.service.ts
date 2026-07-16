@@ -108,6 +108,7 @@ const advanceStep = async (
       shipmentSteps: {
         orderBy: { order: "asc" },
       },
+      trip: true,
     },
   });
 
@@ -115,7 +116,11 @@ const advanceStep = async (
     throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
-  if (user.role !== "admin" && shipment.userId !== user.id) {
+  if (
+    user.role !== "admin" &&
+    shipment.userId !== user.id &&
+    (!shipment.trip || shipment.trip.userId !== user.id)
+  ) {
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
   }
 
