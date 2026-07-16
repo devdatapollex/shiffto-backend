@@ -10,7 +10,7 @@ model Trip {
   checkInBagCapacity       Float
   remainingCabinCapacity   Float
   remainingCheckInCapacity Float
-  ticketPhoto              String
+  ticketPhoto              String?
   status                   String     @default("PENDING")
   rejectionReason          String?
   userId                   String
