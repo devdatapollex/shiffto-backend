@@ -8,6 +8,11 @@ http:
   url: "{{localurl}}/api/v1/trips/{{tripId}}"
   auth: inherit
 
+runtime:
+  variables:
+    - name: tripId
+      value: 019f5ffd-e51a-702f-862b-fd90b0486756
+
 settings:
   encodeUrl: true
   timeout: 0

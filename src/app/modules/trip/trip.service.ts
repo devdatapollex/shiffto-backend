@@ -39,9 +39,13 @@ const getTrips = async (query: Record<string, unknown>, user: User) => {
 
   const where: any = {};
 
-  // If requesting my-trips, filter by logged-in user ID
+  // Role-based user filter
   if (query.type === "my-trips") {
-    where.userId = user.id;
+    if (user.role !== "admin") {
+      where.userId = user.id;
+    } else if (query.userId) {
+      where.userId = query.userId as string;
+    }
   } else if (user.role !== "admin") {
     // For non-admin, non-my-trips search, only return ACTIVE trips
     where.status = "ACTIVE";
@@ -73,6 +77,9 @@ const getTrips = async (query: Record<string, unknown>, user: User) => {
     // Admin filters
     if (query.status) {
       where.status = query.status as string;
+    }
+    if (query.userId) {
+      where.userId = query.userId as string;
     }
     if (query.searchTerm) {
       const search = query.searchTerm as string;
