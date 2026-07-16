@@ -6,6 +6,11 @@
       "use": "@vercel/node"
     }
   ],
+  "functions": {
+    "dist/app.js": {
+      "includeFiles": "dist/templates/**"
+    }
+  },
   "routes": [
     {
       "src": "/(.*)",
