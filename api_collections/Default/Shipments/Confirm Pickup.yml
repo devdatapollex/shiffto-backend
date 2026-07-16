@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{localurl}}/api/v1/shipments/:shipmentId/steps/confirm-pickup"
+  url: "{{localurl}}/api/v1/shipments/{{shipmentId}}/steps/confirm-pickup"
   headers:
     - name: Content-Type
       value: application/json

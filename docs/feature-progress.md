@@ -481,3 +481,42 @@ Verification:
 Notes:
 
 - Previously undocumented modules (Trips, Profile, Admin, Notifications, Step Definitions) now have full OpenAPI descriptions and API collection files with realistic request bodies.
+
+## OpenAPI Structure Fix And Offer Module Documentation
+
+Status: Completed
+Started: 2026-07-16
+Completed: 2026-07-16
+
+Scope:
+
+- Fix broken OpenAPI spec structure where 20+ paths were nested inside other endpoints' request body schemas.
+- Add missing Offer module endpoints (5) to OpenAPI and API collection.
+- Add missing Trip and Shipment endpoints (2) to OpenAPI and API collection.
+- Fix inconsistent Bruno path variable syntax in collection files.
+
+Completed Work:
+
+- Rewrote `src/app/docs/openapi.ts`: all paths are now proper top-level entries under `paths`.
+- Fixed critical nesting bug: Trip, Profile, Admin, Notification, StepDefinition, and confirm-delivery paths were incorrectly nested inside `POST /api/v1/shipments` requestBody schema.
+- Fixed critical nesting bug: `GET /api/v1/shipments/{id}/steps` and `GET /api/v1/shipments/{id}/details` were incorrectly nested inside `DELETE /api/v1/shipments/{id}` handler.
+- Fixed `POST /api/v1/shipments/send-otp` which was incorrectly nested inside `POST /api/v1/shipments` requestBody.
+- Added 7 missing endpoint definitions to OpenAPI:
+  - `GET /api/v1/shipments/{id}/offers`
+  - `GET /api/v1/trips/available-shipments`
+  - `POST /api/v1/offers`
+  - `GET /api/v1/offers/sent`
+  - `GET /api/v1/offers/received`
+  - `POST /api/v1/offers/{id}/accept`
+  - `DELETE /api/v1/offers/{id}`
+- Created 7 new API collection files:
+  - `api_collections/Default/Offers/` (5 files)
+  - `api_collections/Default/Trips/Get Available Shipments.yml`
+  - `api_collections/Default/Shipments/Get Shipment Offers.yml`
+- Fixed `Confirm Payment.yml` and `Confirm Pickup.yml`: changed `:shipmentId` to `{{shipmentId}}` for proper Bruno variable resolution.
+
+Verification:
+
+- `npx tsc --noEmit` completed successfully.
+- All 53 backend routes now have matching OpenAPI documentation.
+- All 53 backend routes now have matching API collection files.

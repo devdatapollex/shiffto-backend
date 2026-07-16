@@ -25,7 +25,8 @@ http:
         "receiverName": "John Doe",
         "receiverPhone": "+1234567890",
         "receiverAddress": "123 Main St, City",
-        "categoryId": "019f416d-e483-77b9-b2f9-7d92c91dc048"
+        "categoryId": "019f416d-e483-77b9-b2f9-7d92c91dc048",
+        "otp": "123456"
       }
   auth: inherit
 
