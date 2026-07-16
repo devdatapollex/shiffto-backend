@@ -1,0 +1,128 @@
+model ShipmentCategory {
+  id          String     @id @default(uuid(7))
+  name        String
+  slug        String     @unique
+  maxWeight   Float?
+  minPrice    Float
+  maxPrice    Float?
+  maxQuantity Int?
+  shipments   Shipment[]
+
+  @@map("shipment_categories")
+}
+
+enum ShipmentStatus {
+  AWAITING_MATCH
+  ACTIVE
+  DELIVERED
+  CANCELED
+}
+
+model Shipment {
+  id              String           @id @default(uuid(7))
+  itemName        String
+  weight          Float
+  quantity        Int
+  description     String
+  itemPhotos      String[]
+  instructions    String
+  fromCountry     String
+  toCountry       String
+  pricePerKg      Float
+  receiverName    String
+  receiverPhone   String
+  receiverAddress String
+  categoryId      String
+  userId          String
+  tripId          String?
+  bagType         String?
+  category        ShipmentCategory @relation(fields: [categoryId], references: [id])
+  trip            Trip?            @relation(fields: [tripId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+
+  status ShipmentStatus @default(AWAITING_MATCH)
+
+  shipmentSteps ShipmentStep[] @relation("ShipmentSteps")
+  offers        Offer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("shipments")
+}
+
+enum shipmentStepStage {
+  PAYMENT_CONFIRMED
+  PICKED_UP
+  CHECKED_IN
+  IN_TRANSIT
+  ARRIVED_AT_DESTINATION
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
+model StepDefinition {
+  id          String            @id @default(uuid(7))
+  stage       shipmentStepStage @unique
+  label       String
+  order       Int               @unique
+  description String?
+  steps       ShipmentStep[]    @relation("StepDefinitions")
+
+  @@map("step_definitions")
+}
+
+model ShipmentStep {
+  id         String   @id @default(uuid(7))
+  shipment   Shipment @relation("ShipmentSteps", fields: [shipmentId], references: [id], onDelete: Cascade)
+  shipmentId String
+
+  definition   StepDefinition    @relation("StepDefinitions", fields: [definitionId], references: [id])
+  definitionId String
+  stage        shipmentStepStage
+
+  order       Int
+  completedAt DateTime?
+  isCurrent   Boolean   @default(false)
+  notes       String?
+  photoUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Note: a partial unique index on (shipmentId) WHERE isCurrent = true
+  // is enforced at the DB level via raw SQL in the migration (see PARTIAL-INDEX-PLAN).
+  // Prisma's schema language does not support partial indexes — preserve it manually.
+  @@unique([shipmentId, order])
+  @@index([shipmentId, order])
+  @@index([shipmentId, isCurrent])
+  @@map("shipment_steps")
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Offer {
+  id             String      @id @default(uuid(7))
+  shipmentId     String
+  travellerId    String
+  tripId         String
+  senderPrice    Float       // Snapshot of shipment's pricePerKg at time of offer
+  offeredPrice   Float       // What the traveller is offering to pay
+  bagType        String      // "cabin" | "checkIn"
+  status         OfferStatus @default(PENDING)
+  isCounterOffer Boolean     @default(false)
+  shipment       Shipment    @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  traveller      User        @relation("TravellerOffers", fields: [travellerId], references: [id])
+  trip           Trip        @relation(fields: [tripId], references: [id])
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([shipmentId, travellerId]) // One active offer per traveller per shipment
+  @@index([shipmentId])
+  @@index([travellerId])
+  @@map("offers")
+}

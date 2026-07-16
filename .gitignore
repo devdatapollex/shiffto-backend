@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.test
+uploads
+
+/.idea
+
+/src/generated/prisma
+.commandcode/
+.vercel
+.env*.local

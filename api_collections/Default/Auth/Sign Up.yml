@@ -1,0 +1,28 @@
+info:
+  name: Sign Up
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{localurl}}/api/auth/sign-up/email"
+  headers:
+    - name: Origin
+      value: "{{frontendurl}}"
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Test User 5",
+        "email": "test5@example.com",
+        "password": "password123"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

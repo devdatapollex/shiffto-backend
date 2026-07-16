@@ -1,0 +1,6 @@
+name: default
+variables:
+  - name: localurl
+    value: http://localhost:5000
+  - name: frontendurl
+    value: http://localhost:3000
