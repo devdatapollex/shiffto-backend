@@ -9,3 +9,4 @@ uploads
 /src/generated/prisma
 .commandcode/
 .vercel
+.env*.local

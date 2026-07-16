@@ -33,9 +33,7 @@ const createTripSchema = z.object({
           : "Check-in bag capacity must be a number",
     })
     .nonnegative({ error: "Check-in bag capacity must be 0 or more" }),
-  ticketPhoto: z
-    .string({ error: "Flight ticket photo is required" })
-    .min(1, { error: "Flight ticket photo must not be empty" }),
+  ticketPhoto: z.string().optional(),
 });
 
 const updateTripSchema = z.object({

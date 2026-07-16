@@ -24,7 +24,7 @@ const createTrip = async (data: any, user: User) => {
       checkInBagCapacity: data.checkInBagCapacity,
       remainingCabinCapacity: data.cabinBagCapacity,
       remainingCheckInCapacity: data.checkInBagCapacity,
-      ticketPhoto: data.ticketPhoto,
+      ticketPhoto: data.ticketPhoto || null,
       userId: user.id,
       status: "PENDING",
     },
