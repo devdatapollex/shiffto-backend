@@ -1,0 +1,27 @@
+info:
+  name: Create Offer
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/offers"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "shipmentId": "019f416d-e483-77b9-b2f9-7d92c91dc048",
+        "tripId": "019f5fdb-b682-7304-b81b-d624e30fed22",
+        "offeredPrice": 95,
+        "bagType": "cabin"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
