@@ -16,7 +16,9 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
     "seed:admin": "tsx prisma/seeds/admin.ts",
-    "seed:steps": "tsx prisma/seeds/step-definitions.ts"
+    "seed:steps": "tsx prisma/seeds/step-definitions.ts",
+    "seed:shipments": "tsx prisma/seeds/shipments.ts",
+    "seed:trips": "tsx prisma/seeds/trips.ts"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

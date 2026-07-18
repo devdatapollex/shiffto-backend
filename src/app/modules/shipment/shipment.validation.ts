@@ -31,8 +31,14 @@ const createShipmentSchema = z.object({
         .min(1, { error: "Photo URL must not be empty" }),
       { error: "Item photos must be an array" },
     )
-    .min(1, { error: "At least 1 item photo is required" })
-    .max(5, { error: "Maximum 5 item photos allowed" }),
+    .max(5, { error: "Maximum 5 item photos allowed" })
+    .optional()
+    // REVERT_MARKER: Remove this dev workaround when shipment item photos are required.
+    .transform((val) =>
+      val && val.length > 0
+        ? val
+        : ["https://placehold.co/600x400?text=Item+Photo+Placeholder"],
+    ),
   instructions: z
     .string({ error: "Instructions are required" })
     .min(1, { error: "Instructions must not be empty" }),

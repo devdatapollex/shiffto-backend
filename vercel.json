@@ -1,20 +1,14 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "dist/app.js",
-      "use": "@vercel/node"
-    }
-  ],
   "functions": {
-    "dist/app.js": {
+    "api/index.js": {
       "includeFiles": "dist/templates/**"
     }
   },
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "dist/app.js"
+      "dest": "api/index.js"
     }
   ]
 }
