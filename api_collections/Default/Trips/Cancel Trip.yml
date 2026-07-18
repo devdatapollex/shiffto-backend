@@ -1,0 +1,18 @@
+info:
+  name: Cancel Trip
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/trips/{{tripId}}/cancel"
+  headers:
+    - name: Content-Type
+      value: application/json
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

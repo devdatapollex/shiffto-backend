@@ -17,6 +17,12 @@ router.post(
 
 router.get("/", authGuard(), TripController.getTrips);
 
+router.get(
+  "/available-shipments",
+  authGuard(),
+  TripController.getAvailableShipments,
+);
+
 router.get("/:id", authGuard(), TripController.getTripById);
 
 router.patch(

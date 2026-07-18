@@ -1,0 +1,25 @@
+info:
+  name: Update Step Definition
+  type: http
+  seq: 2
+
+http:
+  method: PATCH
+  url: "{{localurl}}/api/v1/shipments-steps/{{stepDefinitionId}}"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "label": "Updated Step Label",
+        "description": "Updated description"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

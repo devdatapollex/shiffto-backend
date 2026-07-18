@@ -1,0 +1,32 @@
+info:
+  name: Create Trip
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/trips"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "flightNumber": "BA123",
+        "fromCountry": "US",
+        "toCountry": "BD",
+        "flightDate": "2026-07-20",
+        "flightTime": "14:30",
+        "airportArrivalTime": "10:30",
+        "cabinBagCapacity": 2,
+        "checkInBagCapacity": 1,
+        "ticketPhoto": "https://example.com/ticket.jpg"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
