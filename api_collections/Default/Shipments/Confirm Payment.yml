@@ -1,0 +1,22 @@
+info:
+  name: Confirm Payment
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/shipments/{{shipmentId}}/confirm-payment"
+  headers:
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: shipmentId
+      value: 019f5fdb-b682-7304-b81b-d624e30fed22
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

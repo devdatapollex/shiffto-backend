@@ -1,0 +1,26 @@
+info:
+  name: Confirm Delivery
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/shipments/{{shipmentId}}/steps/confirm-delivery"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "otp": "123456",
+        "photoUrl": "https://example.com/delivery-photo.jpg",
+        "notes": "Package delivered successfully"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
