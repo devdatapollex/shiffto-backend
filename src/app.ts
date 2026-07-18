@@ -21,7 +21,7 @@ app.use(
 
 app.all("/api/auth/{*any}", toNodeHandler(auth));
 
-//parser
+//parser---
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
