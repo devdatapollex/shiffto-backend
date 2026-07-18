@@ -94,9 +94,14 @@ const confirmPayment = async (
   }
 };
 
-const advanceStep = async (
+/**
+ * Common internal step advancement helper that enforces invariant stage checks,
+ * role authorization, and atomic transactions.
+ */
+const executeStepAdvancement = async (
   shipmentId: string,
   user: User,
+  expectedStage: shipmentStepStage,
   options?: { notes?: string; photoUrl?: string },
   tx?: Prisma.TransactionClient,
 ) => {
@@ -116,12 +121,16 @@ const advanceStep = async (
     throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
-  if (
-    user.role !== "admin" &&
-    shipment.userId !== user.id &&
-    (!shipment.trip || shipment.trip.userId !== user.id)
-  ) {
-    throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
+  const isTraveller = Boolean(
+    shipment.trip && shipment.trip.userId === user.id,
+  );
+  const isAdmin = user.role === "admin";
+
+  if (!isTraveller && !isAdmin) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      "Only the assigned traveller or admin can advance shipment steps",
+    );
   }
 
   if (shipment.status === ShipmentStatus.CANCELED) {
@@ -146,22 +155,20 @@ const advanceStep = async (
     );
   }
 
-  if (currentStep.stage === shipmentStepStage.DELIVERED) {
+  if (currentStep.stage !== expectedStage) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Shipment is already at the final step",
+      `Cannot confirm stage ${expectedStage}. Current active stage is ${currentStep.stage}.`,
     );
   }
 
+  const isFinalStep = currentStep.stage === shipmentStepStage.DELIVERED;
   const nextStep = shipment.shipmentSteps.find(
     (s: ShipmentStep) => s.order === currentStep.order + 1,
   );
 
-  if (!nextStep) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "No next step available. Shipment is at the final step.",
-    );
+  if (!isFinalStep && !nextStep) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "No next step available.");
   }
 
   const executeUpdates = async (
@@ -177,12 +184,14 @@ const advanceStep = async (
       },
     });
 
-    await transactionClient.shipmentStep.update({
-      where: { id: nextStep.id },
-      data: { isCurrent: true },
-    });
+    if (nextStep) {
+      await transactionClient.shipmentStep.update({
+        where: { id: nextStep.id },
+        data: { isCurrent: true },
+      });
+    }
 
-    if (nextStep.stage === shipmentStepStage.DELIVERED) {
+    if (isFinalStep) {
       await transactionClient.shipment.update({
         where: { id: shipmentId },
         data: { status: ShipmentStatus.DELIVERED },
@@ -205,7 +214,139 @@ const advanceStep = async (
   }
 };
 
+// Dedicated step advancement service functions
+const confirmPickup = async (
+  shipmentId: string,
+  user: User,
+  payload: { photoUrl: string; notes?: string },
+  tx?: Prisma.TransactionClient,
+) => {
+  return executeStepAdvancement(
+    shipmentId,
+    user,
+    shipmentStepStage.PICKED_UP,
+    payload,
+    tx,
+  );
+};
+
+const confirmCheckin = async (
+  shipmentId: string,
+  user: User,
+  payload?: { notes?: string },
+  tx?: Prisma.TransactionClient,
+) => {
+  return executeStepAdvancement(
+    shipmentId,
+    user,
+    shipmentStepStage.CHECKED_IN,
+    payload,
+    tx,
+  );
+};
+
+const confirmTransit = async (
+  shipmentId: string,
+  user: User,
+  payload?: { notes?: string },
+  tx?: Prisma.TransactionClient,
+) => {
+  return executeStepAdvancement(
+    shipmentId,
+    user,
+    shipmentStepStage.IN_TRANSIT,
+    payload,
+    tx,
+  );
+};
+
+const confirmArrival = async (
+  shipmentId: string,
+  user: User,
+  payload?: { notes?: string },
+  tx?: Prisma.TransactionClient,
+) => {
+  return executeStepAdvancement(
+    shipmentId,
+    user,
+    shipmentStepStage.ARRIVED_AT_DESTINATION,
+    payload,
+    tx,
+  );
+};
+
+const confirmOutForDelivery = async (
+  shipmentId: string,
+  user: User,
+  payload?: { notes?: string },
+  tx?: Prisma.TransactionClient,
+) => {
+  return executeStepAdvancement(
+    shipmentId,
+    user,
+    shipmentStepStage.OUT_FOR_DELIVERY,
+    payload,
+    tx,
+  );
+};
+
+const confirmDelivery = async (
+  shipmentId: string,
+  user: User,
+  payload: { photoUrl: string; notes?: string },
+  tx?: Prisma.TransactionClient,
+) => {
+  return executeStepAdvancement(
+    shipmentId,
+    user,
+    shipmentStepStage.DELIVERED,
+    payload,
+    tx,
+  );
+};
+
+// Generic advance step override (used for admin override if stage isn't pre-asserted)
+const advanceStep = async (
+  shipmentId: string,
+  user: User,
+  options?: { notes?: string; photoUrl?: string },
+  tx?: Prisma.TransactionClient,
+) => {
+  const client = tx || prisma;
+
+  const shipment = await client.shipment.findUnique({
+    where: { id: shipmentId },
+    include: {
+      shipmentSteps: { orderBy: { order: "asc" } },
+      trip: true,
+    },
+  });
+
+  if (!shipment) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
+  }
+
+  const currentStep = shipment.shipmentSteps.find((s) => s.isCurrent);
+  if (!currentStep) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "No current active step found");
+  }
+
+  return executeStepAdvancement(
+    shipmentId,
+    user,
+    currentStep.stage,
+    options,
+    tx,
+  );
+};
+
 export const ShipmentStepService = {
   confirmPayment,
+  confirmPickup,
+  confirmCheckin,
+  confirmTransit,
+  confirmArrival,
+  confirmOutForDelivery,
+  confirmDelivery,
   advanceStep,
 };
