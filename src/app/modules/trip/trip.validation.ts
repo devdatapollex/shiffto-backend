@@ -33,7 +33,14 @@ const createTripSchema = z.object({
           : "Check-in bag capacity must be a number",
     })
     .nonnegative({ error: "Check-in bag capacity must be 0 or more" }),
-  ticketPhoto: z.string().optional(),
+  ticketPhoto: z
+    .string()
+    .optional()
+    // REVERT_MARKER: Remove this dev workaround when flight ticket photo is required.
+    .transform(
+      (val) =>
+        val || "https://placehold.co/600x400?text=Ticket+Photo+Placeholder",
+    ),
 });
 
 const updateTripSchema = z.object({
@@ -68,8 +75,12 @@ const updateTripSchema = z.object({
     .optional(),
   ticketPhoto: z
     .string({ error: "Flight ticket photo must be a string" })
-    .min(1, { error: "Flight ticket photo must not be empty" })
-    .optional(),
+    .optional()
+    // REVERT_MARKER: Remove this dev workaround when flight ticket photo is required.
+    .transform(
+      (val) =>
+        val || "https://placehold.co/600x400?text=Ticket+Photo+Placeholder",
+    ),
 });
 
 const verifyTripSchema = z.object({
