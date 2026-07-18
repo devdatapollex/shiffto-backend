@@ -26,10 +26,26 @@ const submitKycSchema = z.object({
   documentNumber: z.string().min(1, "Document number is required"),
   nationality: z.string().min(1, "Nationality is required"),
   phoneNumber: z.string().min(1, "Phone number is required"),
-  frontPhotoUrl: z.string().url("Front photo URL is required"),
-  frontPhotoKey: z.string().min(1, "Front photo key is required"),
-  backPhotoUrl: z.string().url("Back photo URL is required"),
-  backPhotoKey: z.string().min(1, "Back photo key is required"),
+  frontPhotoUrl: z
+    .string()
+    .optional()
+    // REVERT_MARKER: Remove this dev workaround when document photos are required for KYC.
+    .transform((val) => val || "https://placehold.co/600x400?text=KYC+Front+Photo"),
+  frontPhotoKey: z
+    .string()
+    .optional()
+    // REVERT_MARKER: Remove this dev workaround when document photos are required for KYC.
+    .transform((val) => val || "dummy-kyc-front-key"),
+  backPhotoUrl: z
+    .string()
+    .optional()
+    // REVERT_MARKER: Remove this dev workaround when document photos are required for KYC.
+    .transform((val) => val || "https://placehold.co/600x400?text=KYC+Back+Photo"),
+  backPhotoKey: z
+    .string()
+    .optional()
+    // REVERT_MARKER: Remove this dev workaround when document photos are required for KYC.
+    .transform((val) => val || "dummy-kyc-back-key"),
 });
 
 const deleteAccountSchema = z.object({
