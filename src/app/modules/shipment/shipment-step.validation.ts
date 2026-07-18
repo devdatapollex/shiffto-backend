@@ -24,9 +24,6 @@ const confirmOutForDeliverySchema = z.object({
 });
 
 const confirmDeliverySchema = z.object({
-  otp: z
-    .string({ error: "OTP is required" })
-    .length(6, { error: "OTP must be 6 digits" }),
   photoUrl: z
     .string({ error: "Photo proof is required" })
     .min(1, { error: "Photo URL must not be empty" }),
