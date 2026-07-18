@@ -43,6 +43,7 @@ model Shipment {
   status ShipmentStatus @default(AWAITING_MATCH)
 
   shipmentSteps ShipmentStep[] @relation("ShipmentSteps")
+  offers        Offer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -84,6 +85,7 @@ model ShipmentStep {
   completedAt DateTime?
   isCurrent   Boolean   @default(false)
   notes       String?
+  photoUrl    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -95,4 +97,32 @@ model ShipmentStep {
   @@index([shipmentId, order])
   @@index([shipmentId, isCurrent])
   @@map("shipment_steps")
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Offer {
+  id             String      @id @default(uuid(7))
+  shipmentId     String
+  travellerId    String
+  tripId         String
+  senderPrice    Float       // Snapshot of shipment's pricePerKg at time of offer
+  offeredPrice   Float       // What the traveller is offering to pay
+  bagType        String      // "cabin" | "checkIn"
+  status         OfferStatus @default(PENDING)
+  isCounterOffer Boolean     @default(false)
+  shipment       Shipment    @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  traveller      User        @relation("TravellerOffers", fields: [travellerId], references: [id])
+  trip           Trip        @relation(fields: [tripId], references: [id])
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([shipmentId, travellerId]) // One active offer per traveller per shipment
+  @@index([shipmentId])
+  @@index([travellerId])
+  @@map("offers")
 }

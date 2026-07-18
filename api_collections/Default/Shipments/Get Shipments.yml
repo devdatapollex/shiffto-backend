@@ -5,7 +5,11 @@ info:
 
 http:
   method: GET
-  url: "{{localurl}}/api/v1/shipments"
+  url: "{{localurl}}/api/v1/shipments?type=available"
+  params:
+    - name: type
+      value: available
+      type: query
   auth: inherit
 
 settings:

@@ -1,0 +1,24 @@
+info:
+  name: Confirm Out for Delivery
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/shipments/{{shipmentId}}/steps/confirm-out-for-delivery"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "notes": "Package out for delivery"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -383,3 +383,140 @@ Notes:
 - No Prisma migration or code change required — Better Auth's emailOTP plugin already handles the flow via the existing `Verification` model.
 - The `sendVerificationOTP` function in `src/app/lib/email.ts` already supported the `"forget-password"` OTP type with the subject "Reset your Shiffto password".
 - The deprecated `/api/auth/forget-password/email-otp` endpoint exists in Better Auth but is intentionally not added to the API collection.
+
+## Shipment Step Progression
+
+Status: Completed
+Started: 2026-07-15
+Completed: 2026-07-15
+
+Scope:
+
+- Add backend functionality for progressing shipment steps sequentially.
+- Core progression service with reusable logic for step advancement.
+- Dedicated route handlers for each step with specific validation.
+- Payment confirmation route (simulated for now, Stripe integration later).
+- Delivery OTP verification flow.
+- Photo proof requirements for pickup and delivery steps.
+
+Completed Work:
+
+- Added `photoUrl` field to `ShipmentStep` model via Prisma migration `20260715091009_add_step_photo_url`.
+- Created `src/app/modules/shipment/shipment-step.service.ts` with core progression logic:
+  - `confirmPayment` - activates shipment and marks PAYMENT_CONFIRMED as completed.
+  - `advanceStep` - advances to next sequential step with optional notes/photoUrl.
+- Created `src/app/modules/shipment/shipment-step.validation.ts` with Zod schemas for each step.
+- Created `src/app/modules/shipment/shipment-step.controller.ts` with route handlers.
+- Created `src/app/modules/shipment/shipment-step.routes.ts` with Express router.
+- Modified `src/app/modules/shipment/shipment-otp.service.ts`:
+  - Added `generateDeliveryOtp(shipmentId)` - sends OTP to shipment owner's email.
+  - Added `verifyDeliveryOtp(email, otp)` - verifies delivery OTP.
+- Modified `src/app/modules/shipment/shipment.route.ts` to mount step routes.
+- Modified `src/app/lib/email.ts` to add `shipment-delivery` OTP type.
+- Added 8 API collection files in `api_collections/Default/Shipments/`:
+  - Confirm Payment.yml
+  - Send Delivery OTP.yml
+  - Confirm Pickup.yml
+  - Confirm Check-in.yml
+  - Confirm Transit.yml
+  - Confirm Arrival.yml
+  - Confirm Out for Delivery.yml
+  - Confirm Delivery.yml
+- Updated OpenAPI spec in `src/app/docs/openapi.ts` with all new endpoints.
+- All existing tests pass (78 tests across 13 files).
+
+Verification:
+
+- `npx prisma migrate dev -n "add-step-photo-url"` completed successfully.
+- `npx tsc --noEmit` completed successfully.
+- `npx vitest run` completed successfully: 78 tests passed.
+
+Notes:
+
+- Payment confirmation is simulated for now (`POST /shipments/:id/confirm-payment`). Will be replaced with Stripe integration later.
+- Steps advance sequentially only, no backwards movement allowed.
+- Shipment owner (sender) can advance steps for now. Traveler assignment not built yet.
+- Photo proof required for pickup (step 2→3) and delivery (step 7).
+- Notes optional for all steps.
+- Notifications skipped for now.
+- Delivery requires OTP verification: traveler calls `send-delivery-otp`, OTP sent to sender, receiver shares OTP with traveler, traveler submits with photo.
+- Shipment status transitions: AWAITING_MATCH → ACTIVE (on payment), ACTIVE → DELIVERED (on delivery).
+- Cancellation not allowed after pickup.
+
+## OpenAPI Documentation Completion
+
+Status: Completed
+Started: 2026-07-15
+Completed: 2026-07-15
+
+Scope:
+
+- Add all missing API endpoints to the OpenAPI spec in `src/app/docs/openapi.ts`.
+- Add `components.securitySchemes.bearerAuth` (referenced by paths but undefined).
+- Fix incorrect `admin only` label on shipment categories list endpoint.
+
+Completed Work:
+
+- Added `bearerAuth` security scheme component to OpenAPI spec.
+- Added missing Shipment endpoints: `POST /api/v1/shipments/send-otp`, `GET /api/v1/shipments/{id}/steps`, `GET /api/v1/shipments/{id}/details`.
+- Added Trip module (8 endpoints): create, list, get by id, update, cancel, verify (admin), accept-shipment, complete.
+- Added Profile module (6 endpoints): get, update, change-password, submit kyc, deactivate, delete.
+- Added Admin module (3 endpoints): list KYC submissions, review KYC, reactivate user.
+- Added Notification module (3 endpoints): list, mark one read, mark all read.
+- Added Step Definition module (2 endpoints): list, update (admin).
+- Fixed Shipment Categories `GET /` summary — it is not admin-only.
+- Added API collection YAML files for all newly documented modules:
+  - `Shipments/`: Send Shipment OTP, Get Shipment Steps, Get Shipment Details
+  - `Trips/`: 8 files (Create, Get Trips, Get Trip, Update, Cancel, Verify, Accept Shipment, Complete)
+  - `Profile/`: 6 files (Get, Update, Change Password, Submit KYC, Deactivate, Delete)
+  - `Admin/`: 3 files (Get KYC Submissions, Review KYC, Reactivate User)
+  - `Notifications/`: 3 files (Get, Mark All Read, Mark Notification Read)
+  - `StepDefinitions/`: 2 files (Get, Update)
+
+Verification:
+
+- `npx tsc --noEmit` completed successfully.
+- `npx vitest run` completed successfully: 78 tests passed across 13 files.
+
+Notes:
+
+- Previously undocumented modules (Trips, Profile, Admin, Notifications, Step Definitions) now have full OpenAPI descriptions and API collection files with realistic request bodies.
+
+## OpenAPI Structure Fix And Offer Module Documentation
+
+Status: Completed
+Started: 2026-07-16
+Completed: 2026-07-16
+
+Scope:
+
+- Fix broken OpenAPI spec structure where 20+ paths were nested inside other endpoints' request body schemas.
+- Add missing Offer module endpoints (5) to OpenAPI and API collection.
+- Add missing Trip and Shipment endpoints (2) to OpenAPI and API collection.
+- Fix inconsistent Bruno path variable syntax in collection files.
+
+Completed Work:
+
+- Rewrote `src/app/docs/openapi.ts`: all paths are now proper top-level entries under `paths`.
+- Fixed critical nesting bug: Trip, Profile, Admin, Notification, StepDefinition, and confirm-delivery paths were incorrectly nested inside `POST /api/v1/shipments` requestBody schema.
+- Fixed critical nesting bug: `GET /api/v1/shipments/{id}/steps` and `GET /api/v1/shipments/{id}/details` were incorrectly nested inside `DELETE /api/v1/shipments/{id}` handler.
+- Fixed `POST /api/v1/shipments/send-otp` which was incorrectly nested inside `POST /api/v1/shipments` requestBody.
+- Added 7 missing endpoint definitions to OpenAPI:
+  - `GET /api/v1/shipments/{id}/offers`
+  - `GET /api/v1/trips/available-shipments`
+  - `POST /api/v1/offers`
+  - `GET /api/v1/offers/sent`
+  - `GET /api/v1/offers/received`
+  - `POST /api/v1/offers/{id}/accept`
+  - `DELETE /api/v1/offers/{id}`
+- Created 7 new API collection files:
+  - `api_collections/Default/Offers/` (5 files)
+  - `api_collections/Default/Trips/Get Available Shipments.yml`
+  - `api_collections/Default/Shipments/Get Shipment Offers.yml`
+- Fixed `Confirm Payment.yml` and `Confirm Pickup.yml`: changed `:shipmentId` to `{{shipmentId}}` for proper Bruno variable resolution.
+
+Verification:
+
+- `npx tsc --noEmit` completed successfully.
+- All 53 backend routes now have matching OpenAPI documentation.
+- All 53 backend routes now have matching API collection files.
