@@ -84,6 +84,20 @@ const deleteShipment = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getShipmentDetails = catchAsync(async (req: Request, res: Response) => {
+  const result = await ShipmentService.getShipmentDetails(
+    req.params.id as string,
+    req.user!,
+  );
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Shipment details fetched successfully",
+    data: result,
+  });
+});
+
 const getShipmentSteps = catchAsync(async (req: Request, res: Response) => {
   const result = await ShipmentService.getShipmentSteps(
     req.params.id as string,
@@ -103,6 +117,7 @@ export const ShipmentController = {
   sendShipmentOtp,
   getShipments,
   getShipmentById,
+  getShipmentDetails,
   updateShipment,
   deleteShipment,
   getShipmentSteps,

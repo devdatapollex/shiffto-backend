@@ -5,6 +5,7 @@ import { User } from "../../lib/auth";
 import { sendEmail } from "../../lib/email";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 import config from "../../../config";
+import { ShipmentStatus } from "../../../generated/prisma/enums";
 
 const createTrip = async (data: any, user: User) => {
   const tripDate = new Date(data.flightDate);
@@ -38,9 +39,13 @@ const getTrips = async (query: Record<string, unknown>, user: User) => {
 
   const where: any = {};
 
-  // If requesting my-trips, filter by logged-in user ID
+  // Role-based user filter
   if (query.type === "my-trips") {
-    where.userId = user.id;
+    if (user.role !== "admin") {
+      where.userId = user.id;
+    } else if (query.userId) {
+      where.userId = query.userId as string;
+    }
   } else if (user.role !== "admin") {
     // For non-admin, non-my-trips search, only return ACTIVE trips
     where.status = "ACTIVE";
@@ -72,6 +77,9 @@ const getTrips = async (query: Record<string, unknown>, user: User) => {
     // Admin filters
     if (query.status) {
       where.status = query.status as string;
+    }
+    if (query.userId) {
+      where.userId = query.userId as string;
     }
     if (query.searchTerm) {
       const search = query.searchTerm as string;
@@ -524,6 +532,71 @@ const completeTrip = async (id: string, user: User) => {
   return result;
 };
 
+const getAvailableShipments = async (
+  query: Record<string, unknown>,
+  user: User,
+) => {
+  const { page, limit, skip } = paginationHelpers.calculatePagination(query);
+
+  // 1. Fetch user's active trips to get their route pairs
+  const activeTrips = await prisma.trip.findMany({
+    where: {
+      userId: user.id,
+      status: "ACTIVE",
+    },
+    select: {
+      fromCountry: true,
+      toCountry: true,
+    },
+  });
+
+  // 2. If no active trips, return empty response immediately
+  if (activeTrips.length === 0) {
+    return {
+      meta: {
+        page,
+        limit,
+        total: 0,
+      },
+      data: [],
+    };
+  }
+
+  // 3. Build route filters (exact fromCountry & toCountry match)
+  const routeFilters = activeTrips.map((trip) => ({
+    fromCountry: { equals: trip.fromCountry, mode: "insensitive" as const },
+    toCountry: { equals: trip.toCountry, mode: "insensitive" as const },
+  }));
+
+  const where: any = {
+    tripId: null,
+    status: ShipmentStatus.AWAITING_MATCH,
+    userId: { not: user.id }, // prevent matching own shipments
+    OR: routeFilters,
+  };
+
+  const data = await prisma.shipment.findMany({
+    where,
+    skip,
+    take: limit,
+    orderBy: { createdAt: "desc" },
+    include: {
+      category: true,
+    },
+  });
+
+  const total = await prisma.shipment.count({ where });
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+    },
+    data,
+  };
+};
+
 export const TripService = {
   createTrip,
   getTrips,
@@ -533,4 +606,5 @@ export const TripService = {
   verifyTrip,
   acceptShipment,
   completeTrip,
+  getAvailableShipments,
 };

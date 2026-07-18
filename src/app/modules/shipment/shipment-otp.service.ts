@@ -6,6 +6,7 @@ import ApiError from "../../errors/ApiError";
 import { sendVerificationOTP } from "../../lib/email";
 
 const OTP_IDENTIFIER_PREFIX = "shipment-verification-otp";
+const DELIVERY_OTP_IDENTIFIER_PREFIX = "shipment-delivery-otp";
 const OTP_EXPIRY_SECONDS = 300;
 const OTP_MAX_ATTEMPTS = 3;
 const OTP_LENGTH = 6;
@@ -91,7 +92,79 @@ const verifyShipmentOtp = async (
   await client.verification.delete({ where: { id: record.id } });
 };
 
+const buildDeliveryIdentifier = (email: string) =>
+  `${DELIVERY_OTP_IDENTIFIER_PREFIX}-${email.toLowerCase()}`;
+
+const generateDeliveryOtp = async (shipmentId: string): Promise<void> => {
+  const shipment = await prisma.shipment.findUnique({
+    where: { id: shipmentId },
+    include: { user: { select: { email: true } } },
+  });
+
+  if (!shipment) {
+    throw new ApiError(404, "Shipment not found");
+  }
+
+  const email = shipment.user.email;
+  const identifier = buildDeliveryIdentifier(email);
+  const otp = generateOtpCode();
+
+  await prisma.verification.deleteMany({ where: { identifier } });
+  await prisma.verification.create({
+    data: {
+      id: generateId(24),
+      identifier,
+      value: `${otp}:0`,
+      expiresAt: new Date(Date.now() + OTP_EXPIRY_SECONDS * 1000),
+    },
+  });
+
+  await sendVerificationOTP({
+    email,
+    otp,
+    type: "shipment-delivery",
+  });
+};
+
+const verifyDeliveryOtp = async (
+  email: string,
+  otp: string,
+  client: VerificationClient = prisma,
+): Promise<void> => {
+  const identifier = buildDeliveryIdentifier(email);
+  const record = await client.verification.findFirst({ where: { identifier } });
+
+  if (!record) {
+    throw new ApiError(400, "Invalid OTP");
+  }
+
+  if (record.expiresAt < new Date()) {
+    await client.verification.deleteMany({ where: { identifier } });
+    throw new ApiError(400, "OTP expired");
+  }
+
+  const [storedOtp, attemptsRaw] = splitValue(record.value);
+  const attempts = parseInt(attemptsRaw || "0", 10);
+
+  if (attempts >= OTP_MAX_ATTEMPTS) {
+    await client.verification.deleteMany({ where: { identifier } });
+    throw new ApiError(403, "Too many attempts. Please request a new code.");
+  }
+
+  if (!constantTimeEquals(storedOtp, otp)) {
+    await client.verification.update({
+      where: { id: record.id },
+      data: { value: `${storedOtp}:${attempts + 1}` },
+    });
+    throw new ApiError(400, "Invalid OTP");
+  }
+
+  await client.verification.delete({ where: { id: record.id } });
+};
+
 export const ShipmentOtpService = {
   generateAndSendShipmentOtp,
   verifyShipmentOtp,
+  generateDeliveryOtp,
+  verifyDeliveryOtp,
 };

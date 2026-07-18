@@ -1,0 +1,24 @@
+info:
+  name: Accept Shipment
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/trips/{{tripId}}/accept-shipment"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "shipmentId": "019f416d-e483-77b9-b2f9-7d92c91dc048"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

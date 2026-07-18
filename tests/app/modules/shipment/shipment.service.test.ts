@@ -39,6 +39,11 @@ const mockStepDefinition = {
 
 const mockShipmentStep = {
   createMany: vi.fn(),
+  findMany: vi.fn(),
+};
+
+const mockTrip = {
+  findUnique: vi.fn(),
 };
 
 const mockPrisma = {
@@ -47,6 +52,7 @@ const mockPrisma = {
   verification: mockVerification,
   stepDefinition: mockStepDefinition,
   shipmentStep: mockShipmentStep,
+  trip: mockTrip,
   $transaction: vi.fn((cb: (tx: typeof mockPrisma) => Promise<unknown>) =>
     cb(mockPrisma),
   ),
@@ -198,15 +204,15 @@ describe("ShipmentService", () => {
             definitionId: "def-1",
             stage: "PAYMENT_CONFIRMED",
             order: 1,
-            isCurrent: false,
-            completedAt: expect.any(Date),
+            isCurrent: true,
+            completedAt: null,
           }),
           expect.objectContaining({
             shipmentId: "ship-1",
             definitionId: "def-2",
             stage: "PICKED_UP",
             order: 2,
-            isCurrent: true,
+            isCurrent: false,
             completedAt: null,
           }),
         ]),
@@ -663,6 +669,95 @@ describe("ShipmentService", () => {
         ShipmentService.deleteShipment("ship-1", mockUser),
       ).rejects.toMatchObject({
         statusCode: 404,
+      });
+    });
+  });
+
+  describe("getShipmentDetails", () => {
+    it("returns details including category and steps for owner/traveler", async () => {
+      mockShipment.findFirst.mockResolvedValue({
+        id: "ship-1",
+        userId: "user-1",
+        tripId: "trip-1",
+        itemName: "Laptop",
+      });
+      mockTrip.findUnique.mockResolvedValue({
+        id: "trip-1",
+        flightNumber: "TR123",
+        fromCountry: "US",
+        toCountry: "BD",
+        flightDate: new Date(),
+        flightTime: "10:00",
+        cabinBagCapacity: 10,
+        checkInBagCapacity: 20,
+        remainingCabinCapacity: 5,
+        remainingCheckInCapacity: 15,
+        user: { id: "traveler-1", name: "Bob", email: "bob@example.com", image: null, phone: "123" },
+      });
+
+      const { ShipmentService } = await importService();
+      const result = await ShipmentService.getShipmentDetails("ship-1", mockUser);
+
+      expect(result.id).toBe("ship-1");
+      expect(result.trip).toEqual(
+        expect.objectContaining({
+          id: "trip-1",
+          flightNumber: "TR123",
+          totalCapacity: 30,
+          remainingCapacity: 20,
+        })
+      );
+    });
+
+    it("throws 404 if shipment not found", async () => {
+      mockShipment.findFirst.mockResolvedValue(null);
+      const { ShipmentService } = await importService();
+
+      await expect(
+        ShipmentService.getShipmentDetails("ship-1", mockUser),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+  });
+
+  describe("getShipmentSteps", () => {
+    it("returns steps for sender or traveler", async () => {
+      mockShipment.findUnique.mockResolvedValue({
+        id: "ship-1",
+        userId: "user-1",
+        trip: { userId: "traveler-1" },
+      });
+      mockShipmentStep.findMany.mockResolvedValue([
+        { id: "step-1", stage: "PAYMENT_CONFIRMED", order: 1 },
+      ]);
+
+      const { ShipmentService } = await importService();
+      const result = await ShipmentService.getShipmentSteps("ship-1", mockUser);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].stage).toBe("PAYMENT_CONFIRMED");
+    });
+
+    it("throws 403 if unauthorized user requests steps", async () => {
+      mockShipment.findUnique.mockResolvedValue({
+        id: "ship-1",
+        userId: "user-1",
+        trip: { userId: "traveler-1" },
+      });
+
+      const unauthorizedUser = {
+        id: "hacker-1",
+        email: "hacker@example.com",
+        role: "user" as const,
+      };
+
+      const { ShipmentService } = await importService();
+
+      await expect(
+        ShipmentService.getShipmentSteps("ship-1", unauthorizedUser),
+      ).rejects.toMatchObject({
+        statusCode: 403,
       });
     });
   });
