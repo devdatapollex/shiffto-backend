@@ -69,6 +69,10 @@ export const fileUploader = {
   },
 
   deleteFile: async (key: string) => {
+    // REVERT_MARKER: Remove this dev workaround when dummy files are no longer used.
+    if (key.startsWith("http") || key.includes("dummy-")) {
+      return;
+    }
     if (!isR2Configured) {
       const filePath = path.join(process.cwd(), "uploads", key);
       if (fs.existsSync(filePath)) {
@@ -80,6 +84,10 @@ export const fileUploader = {
   },
 
   deletePublicFile: async (key: string) => {
+    // REVERT_MARKER: Remove this dev workaround when dummy files are no longer used.
+    if (key.startsWith("http") || key.includes("dummy-")) {
+      return;
+    }
     if (!isR2Configured) {
       const filePath = path.join(process.cwd(), "uploads", key);
       if (fs.existsSync(filePath)) {
@@ -91,6 +99,10 @@ export const fileUploader = {
   },
 
   extractKey: (url: string): string => {
+    // REVERT_MARKER: Remove this dev workaround when dummy files are no longer used.
+    if (url.startsWith("http") && !url.includes("/uploads/") && (!config.r2.public_url || !url.includes(config.r2.public_url))) {
+      return url;
+    }
     if (!isR2Configured) {
       const parts = url.split("/uploads/");
       return parts.length > 1 ? parts[1] || "" : url;
