@@ -46,6 +46,21 @@ const getTrips = async (query: Record<string, unknown>, user: User) => {
     } else if (query.userId) {
       where.userId = query.userId as string;
     }
+    if (query.status) {
+      where.status = query.status as string;
+    }
+    if (query.fromCountry) {
+      where.fromCountry = {
+        equals: query.fromCountry as string,
+        mode: "insensitive",
+      };
+    }
+    if (query.toCountry) {
+      where.toCountry = {
+        equals: query.toCountry as string,
+        mode: "insensitive",
+      };
+    }
   } else if (user.role !== "admin") {
     // For non-admin, non-my-trips search, only return ACTIVE trips
     where.status = "ACTIVE";
