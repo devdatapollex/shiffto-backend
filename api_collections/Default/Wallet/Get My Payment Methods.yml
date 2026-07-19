@@ -1,0 +1,15 @@
+info:
+  name: Get My Payment Methods
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{localurl}}/api/v1/wallet"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,24 @@
+info:
+  name: Add Payment Method
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/wallet"
+  auth: inherit
+  body:
+    type: json
+    raw: |-
+      {
+        "type": "BKASH",
+        "accountName": "John Doe",
+        "accountNumber": "01700000089",
+        "isPrimary": true
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
