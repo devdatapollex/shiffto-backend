@@ -78,11 +78,26 @@ const rejectOffer = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const cancelCheckout = catchAsync(async (req: Request, res: Response) => {
+  const result = await OfferService.cancelCheckout(
+    req.params.id as string,
+    req.user!,
+  );
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Checkout canceled successfully",
+    data: result,
+  });
+});
+
 export const OfferController = {
   createOffer,
   getOffersForShipment,
   getReceivedOffers,
   getSentOffers,
   acceptOffer,
+  cancelCheckout,
   rejectOffer,
 };
