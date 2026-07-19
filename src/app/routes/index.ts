@@ -8,6 +8,10 @@ import { AdminRoutes } from "../modules/admin/admin.route";
 import { NotificationRoutes } from "../modules/notification/notification.route";
 import { StepDefinitionRoutes } from "../modules/step-definition/step-definition.route";
 import { OfferRoutes } from "../modules/offer/offer.route";
+import { PaymentRoutes } from "../modules/payment/payment.routes";
+import { WalletRoutes } from "../modules/wallet/wallet.routes";
+import { WithdrawalRoutes } from "../modules/withdrawal/withdrawal.routes";
+import { AdminSettingRoutes } from "../modules/admin-setting/admin-setting.routes";
 
 const router = express.Router();
 
@@ -21,6 +25,10 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/admin", route: AdminRoutes },
   { path: "/notifications", route: NotificationRoutes },
   { path: "/offers", route: OfferRoutes },
+  { path: "/payments", route: PaymentRoutes },
+  { path: "/wallet", route: WalletRoutes },
+  { path: "/withdrawals", route: WithdrawalRoutes },
+  { path: "/admin/settings", route: AdminSettingRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));
