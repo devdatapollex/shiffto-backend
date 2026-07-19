@@ -1,0 +1,22 @@
+info:
+  name: Request Withdrawal
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/withdrawals/request"
+  auth: inherit
+  body:
+    type: json
+    raw: |-
+      {
+        "grossAmount": 200,
+        "paymentMethodId": "{{paymentMethodId}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

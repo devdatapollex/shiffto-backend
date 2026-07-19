@@ -17,6 +17,7 @@ router.get("/sent", authGuard(), OfferController.getSentOffers);
 router.get("/received", authGuard(), OfferController.getReceivedOffers);
 
 router.post("/:id/accept", authGuard(), OfferController.acceptOffer);
+router.post("/:id/cancel-checkout", authGuard(), OfferController.cancelCheckout);
 router.delete("/:id", authGuard(), OfferController.rejectOffer);
 
 export const OfferRoutes = router;
