@@ -6,9 +6,101 @@ import {
   ShipmentStatus,
   shipmentStepStage,
 } from "../../../generated/prisma/enums";
+import { getIO } from "../../lib/socket";
 
 // 3 days in milliseconds
 const DISPUTE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+
+const getHtmlEmailTemplate = (title: string, messageHtml: string, actionText?: string, actionUrl?: string) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background-color: #f8fafc;
+          margin: 0;
+          padding: 0;
+          color: #334155;
+        }
+        .container {
+          max-width: 600px;
+          margin: 40px auto;
+          background: #ffffff;
+          border-radius: 16px;
+          border: 1px solid #e2e8f0;
+          overflow: hidden;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+          background-color: #cd071e;
+          padding: 30px 40px;
+          text-align: center;
+        }
+        .header h1 {
+          color: #ffffff;
+          margin: 0;
+          font-size: 24px;
+          font-weight: 700;
+          letter-spacing: -0.025em;
+        }
+        .content {
+          padding: 40px;
+          line-height: 1.6;
+        }
+        .greeting {
+          font-size: 16px;
+          font-weight: 600;
+          margin-bottom: 20px;
+          color: #0f172a;
+        }
+        .message {
+          font-size: 15px;
+          color: #475569;
+          margin-bottom: 30px;
+        }
+        .action-btn {
+          display: inline-block;
+          background-color: #cd071e;
+          color: #ffffff !important;
+          text-decoration: none;
+          padding: 12px 24px;
+          font-size: 14px;
+          font-weight: 600;
+          border-radius: 8px;
+          text-align: center;
+        }
+        .footer {
+          background-color: #f8fafc;
+          padding: 20px 40px;
+          text-align: center;
+          border-top: 1px solid #e2e8f0;
+          font-size: 12px;
+          color: #94a3b8;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>SHIFFTO Support</h1>
+        </div>
+        <div class="content">
+          <div class="greeting">${title}</div>
+          <div class="message">${messageHtml}</div>
+          ${actionText && actionUrl ? `<div style="text-align: center; margin-top: 30px;"><a href="${actionUrl}" class="action-btn">${actionText}</a></div>` : ''}
+        </div>
+        <div class="footer">
+          <p>This is an automated message. Please do not reply directly to this email.</p>
+          <p>&copy; ${new Date().getFullYear()} Shiffto. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
 
 interface CreateTicketDto {
   category: string;
@@ -394,9 +486,22 @@ const addComment = async (
     // 2. Send email notification
     if (ticket.user?.email) {
       try {
+        const html = getHtmlEmailTemplate(
+          `New Support Reply — ${ticket.ticketId}`,
+          `<p>Hi ${ticket.user.name},</p>
+           <p>Our support team has posted a reply to your ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}").</p>
+           <div style="background-color: #f1f5f9; padding: 16px; border-radius: 8px; border-left: 4px solid #cd071e; margin: 20px 0; font-style: italic; font-size: 15px; color: #1e293b;">
+             "${message.trim()}"
+           </div>
+           <p>Please log in to your dashboard to view the conversation or download any attachments.</p>`,
+          "View Conversation",
+          `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+        );
+
         await sendEmail({
           to: ticket.user.email,
           subject: `New Reply on Ticket ${ticket.ticketId} — Shiffto`,
+          html,
           text: `Hi ${ticket.user.name},\n\nOur support team has replied to your ticket ${ticket.ticketId}.\n\nMessage: "${message.trim()}"\n\nPlease log in to your dashboard to view the conversation.\n\nBest regards,\nShiffto Support Team`,
         });
       } catch (err) {
@@ -406,6 +511,14 @@ const addComment = async (
         );
       }
     }
+  }
+
+  // Socket broadcast of new comment
+  try {
+    const io = getIO();
+    io.to(ticketId).emit("new-comment", comment);
+  } catch (error) {
+    console.error("Failed to emit new-comment socket event:", error);
   }
 
   return comment;
@@ -445,9 +558,19 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
 
     if (ticket.user?.email) {
       try {
+        const html = getHtmlEmailTemplate(
+          `Ticket Closed — ${ticket.ticketId}`,
+          `<p>Hi ${ticket.user.name},</p>
+           <p>Your support ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}") has been marked as <strong>CLOSED</strong> by the support team.</p>
+           <p>If you have any further questions or if you encounter any other issues, please create a new ticket in the support center.</p>`,
+          "Go to Support",
+          `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+        );
+
         await sendEmail({
           to: ticket.user.email,
           subject: `Ticket Closed: ${ticket.ticketId} — Shiffto`,
+          html,
           text: `Hi ${ticket.user.name},\n\nYour ticket ${ticket.ticketId} ("${ticket.title}") has been marked as CLOSED.\n\nIf you have further questions, please create a new ticket.\n\nBest regards,\nShiffto Support Team`,
         });
       } catch (err) {
@@ -457,6 +580,14 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
         );
       }
     }
+  }
+
+  // Socket broadcast of status change
+  try {
+    const io = getIO();
+    io.to(id).emit("ticket-status-updated", { ticketId: ticket.ticketId, id, status: "CLOSED" });
+  } catch (error) {
+    console.error("Failed to emit ticket-status-updated socket event:", error);
   }
 
   return updatedTicket;
@@ -617,9 +748,19 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
 
   if (ticket.user?.email) {
     try {
+      const html = getHtmlEmailTemplate(
+        `Ticket Status Updated — ${ticket.ticketId}`,
+        `<p>Hi ${ticket.user.name},</p>
+         <p>The status of your support ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}") has been updated to <strong>${upperStatus}</strong>.</p>
+         <p>Please log in to your dashboard support center to review the status change and join the discussion.</p>`,
+        "View Support Ticket",
+        `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+      );
+
       await sendEmail({
         to: ticket.user.email,
         subject: `Ticket status updated: ${ticket.ticketId} — Shiffto`,
+        html,
         text: `Hi ${ticket.user.name},\n\nYour ticket ${ticket.ticketId} status has been updated to "${upperStatus}".\n\nPlease log in to your dashboard to view details.\n\nBest regards,\nShiffto Support Team`,
       });
     } catch (err) {
@@ -628,6 +769,14 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
         err,
       );
     }
+  }
+
+  // Socket broadcast of status change
+  try {
+    const io = getIO();
+    io.to(ticketId).emit("ticket-status-updated", { ticketId: ticket.ticketId, id: ticketId, status: upperStatus });
+  } catch (error) {
+    console.error("Failed to emit ticket-status-updated socket event:", error);
   }
 
   return updatedTicket;

@@ -26,8 +26,8 @@ model User {
   receivedPayments   PaymentTransaction[] @relation("TravellerPayments")
   withdrawalRequests WithdrawalRequest[]
 
-  ticketComments TicketComment[]
-  tickets        Ticket[]
+  assignedTickets Ticket[]        @relation("AssignedTickets")
+  ticketComments  TicketComment[]
 
   @@map("user")
 }
