@@ -1,27 +1,33 @@
 model User {
-  id            String         @id
-  name          String
-  email         String         @unique
-  emailVerified Boolean        @default(false)
-  image         String?
-  phone         String?
-  isDeactivated Boolean        @default(false)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  banExpires    DateTime?
-  banReason     String?
-  banned        Boolean?       @default(false)
-  role          String?
-  accounts      Account[]
-  notifications Notification[]
-  sessions      Session[]
+  id              String          @id
+  name            String
+  email           String          @unique
+  emailVerified   Boolean         @default(false)
+  image           String?
+  phone           String?
+  isDeactivated   Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  banExpires      DateTime?
+  banReason       String?
+  banned          Boolean?        @default(false)
+  role            String?
+  accounts        Account[]
+  notifications   Notification[]
+  sessions        Session[]
   shipments       Shipment[]
   trips           Trip[]
   kyc             Kyc?
-  travellerOffers Offer[]    @relation("TravellerOffers")
-  tickets         Ticket[]   @relation("UserTickets")
-  assignedTickets Ticket[]   @relation("AssignedTickets")
-  comments        TicketComment[]
+  travellerOffers Offer[]         @relation("TravellerOffers")
+  paymentMethods  PaymentMethod[]
+  tickets         Ticket[]        @relation("UserTickets")
+
+  sentPayments       PaymentTransaction[] @relation("SenderPayments")
+  receivedPayments   PaymentTransaction[] @relation("TravellerPayments")
+  withdrawalRequests WithdrawalRequest[]
+
+  ticketComments TicketComment[]
+  tickets        Ticket[]
 
   @@map("user")
 }
@@ -30,7 +36,7 @@ model Kyc {
   id              String   @id @default(uuid())
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documentType    String   // "PASSPORT" | "DRIVING_LICENSE" | "NID"
+  documentType    String // "PASSPORT" | "DRIVING_LICENSE" | "NID"
   documentNumber  String
   nationality     String
   phoneNumber     String

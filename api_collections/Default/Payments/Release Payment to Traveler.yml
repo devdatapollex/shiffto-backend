@@ -1,0 +1,15 @@
+info:
+  name: Release Payment to Traveler
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{localurl}}/api/v1/payments/{{transactionId}}/release"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
