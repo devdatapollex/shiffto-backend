@@ -18,6 +18,7 @@ model Trip {
   updatedAt                DateTime   @updatedAt
   shipments                Shipment[]
   offers                   Offer[]
+  tickets                  Ticket[]
   user                     User       @relation(fields: [userId], references: [id])
 
   @@map("trips")
