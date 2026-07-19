@@ -577,9 +577,9 @@ export const openapiDoc = {
                   itemPhotos: {
                     type: "array",
                     items: { type: "string" },
-                    maxItems: 10,
+                    maxItems: 5,
                     description:
-                      "Upload photo URLs (from POST /api/v1/uploads/photos), max 10",
+                      "Upload photo URLs (from POST /api/v1/uploads/photos), max 5",
                   },
                   instructions: { type: "string" },
                   fromCountry: { type: "string", example: "US" },
@@ -1089,7 +1089,6 @@ export const openapiDoc = {
                   "flightTime",
                   "cabinBagCapacity",
                   "checkInBagCapacity",
-                  "ticketPhoto",
                 ],
                 properties: {
                   flightNumber: {
