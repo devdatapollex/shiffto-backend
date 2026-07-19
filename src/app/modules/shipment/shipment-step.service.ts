@@ -196,6 +196,18 @@ const executeStepAdvancement = async (
         where: { id: shipmentId },
         data: { status: ShipmentStatus.DELIVERED },
       });
+
+      // Transition PaymentTransaction from ESCROWED to PENDING_RELEASE with proof photo
+      await transactionClient.paymentTransaction.updateMany({
+        where: {
+          shipmentId,
+          status: "ESCROWED",
+        },
+        data: {
+          status: "PENDING_RELEASE",
+          ...(options?.photoUrl && { proofPhotoUrl: options.photoUrl }),
+        },
+      });
     }
 
     return transactionClient.shipmentStep.findMany({
