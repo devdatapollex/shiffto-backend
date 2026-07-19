@@ -1,0 +1,21 @@
+info:
+  name: Approve Withdrawal
+  type: http
+  seq: 2
+
+http:
+  method: PATCH
+  url: "{{localurl}}/api/v1/withdrawals/admin/{{withdrawalId}}/approve"
+  auth: inherit
+  body:
+    type: json
+    raw: |-
+      {
+        "payoutTxnId": "TRX-987654321"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
