@@ -19,6 +19,9 @@ model User {
   trips           Trip[]
   kyc             Kyc?
   travellerOffers Offer[]    @relation("TravellerOffers")
+  tickets         Ticket[]   @relation("UserTickets")
+  assignedTickets Ticket[]   @relation("AssignedTickets")
+  comments        TicketComment[]
 
   @@map("user")
 }

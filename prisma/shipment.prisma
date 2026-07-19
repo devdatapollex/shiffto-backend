@@ -44,6 +44,7 @@ model Shipment {
 
   shipmentSteps ShipmentStep[] @relation("ShipmentSteps")
   offers        Offer[]
+  tickets       Ticket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
