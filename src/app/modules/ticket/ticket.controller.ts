@@ -172,7 +172,7 @@ const updateTicketPriority = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getAssignees = catchAsync(async (req: Request, res: Response) => {
+const getAssignees = catchAsync(async (_req: Request, res: Response) => {
   const result = await TicketService.getAssignees();
 
   sendResponse(res, {
