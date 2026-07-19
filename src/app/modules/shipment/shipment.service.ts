@@ -187,16 +187,47 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
 };
 
 const getShipmentById = async (id: string, user: User) => {
-  const result = await prisma.shipment.findFirst({
-    where: { id, userId: user.role !== "admin" ? user.id : undefined },
-    include: { category: true },
+  const shipment = await prisma.shipment.findUnique({
+    where: { id },
+    include: {
+      category: true,
+      paymentTransaction: true,
+      user: {
+        select: { id: true, name: true, email: true, phone: true, image: true },
+      },
+      trip: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              image: true,
+            },
+          },
+        },
+      },
+      shipmentSteps: {
+        include: { definition: true },
+        orderBy: { order: "asc" },
+      },
+    },
   });
 
-  if (!result) {
+  if (!shipment) {
     throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
-  return result;
+  if (
+    user.role !== "admin" &&
+    shipment.userId !== user.id &&
+    shipment.trip?.userId !== user.id
+  ) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
+  }
+
+  return shipment;
 };
 
 const getShipmentSteps = async (shipmentId: string, user: User) => {
@@ -299,12 +330,10 @@ const getShipmentDetails = async (id: string, user: User) => {
   const result = await prisma.shipment.findFirst({
     where: {
       id,
-      OR: user.role === "admin"
-        ? undefined
-        : [
-            { userId: user.id },
-            { trip: { userId: user.id } },
-          ],
+      OR:
+        user.role === "admin"
+          ? undefined
+          : [{ userId: user.id }, { trip: { userId: user.id } }],
     },
     include: {
       category: true,

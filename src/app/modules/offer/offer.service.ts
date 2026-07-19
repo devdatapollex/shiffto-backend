@@ -6,6 +6,7 @@ import { OfferStatus, ShipmentStatus } from "../../../generated/prisma/enums";
 import { z } from "zod";
 import { OfferValidation } from "./offer.validation";
 import { ShipmentStepService } from "../shipment/shipment-step.service";
+import { getPaymentAdapter } from "../payment/payment.adapter";
 
 const createOffer = async (
   payload: z.infer<typeof OfferValidation.createOfferSchema>,
@@ -249,7 +250,7 @@ const acceptOffer = async (offerId: string, user: User) => {
   if (offer.status !== OfferStatus.PENDING) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Only pending offers can be accepted",
+      `Only pending offers can be accepted. Current status: ${offer.status}`,
     );
   }
 
@@ -264,8 +265,23 @@ const acceptOffer = async (offerId: string, user: User) => {
   const trip = offer.trip;
   const weight = shipment.weight;
 
-  // Use transaction to ensure thread-safe capacity deduction and updates
+  // Use transaction to ensure thread-safe capacity deduction and active offer lock
   const result = await prisma.$transaction(async (tx) => {
+    // Check if another offer on this shipment is already PAYMENT_PENDING or ACCEPTED
+    const existingActiveOffer = await tx.offer.findFirst({
+      where: {
+        shipmentId: shipment.id,
+        status: { in: [OfferStatus.PAYMENT_PENDING, OfferStatus.ACCEPTED] },
+      },
+    });
+
+    if (existingActiveOffer) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "A checkout or accepted offer already exists for this shipment. Please complete or cancel the active checkout first.",
+      );
+    }
+
     // 1. Double check capacity inside transaction
     const latestTrip = await tx.trip.findUnique({
       where: { id: trip.id },
@@ -309,48 +325,108 @@ const acceptOffer = async (offerId: string, user: User) => {
       });
     }
 
-    // 2. Accept this offer
-    const acceptedOffer = await tx.offer.update({
+    // 2. Set offer status to PAYMENT_PENDING (enforced by DB partial unique index)
+    const pendingOffer = await tx.offer.update({
       where: { id: offerId },
-      data: { status: OfferStatus.ACCEPTED },
+      data: { status: OfferStatus.PAYMENT_PENDING },
     });
 
-    // 3. Reject all other pending offers for this shipment
-    await tx.offer.updateMany({
-      where: {
+    // 3. Create PaymentTransaction with status PENDING_PAYMENT
+    const transactionId = `SHP-${Math.floor(100000 + Math.random() * 900000)}`;
+    const grossAmount = shipment.weight * offer.offeredPrice;
+
+    const paymentTx = await tx.paymentTransaction.create({
+      data: {
+        transactionId,
         shipmentId: shipment.id,
-        id: { not: offerId },
-        status: OfferStatus.PENDING,
-      },
-      data: { status: OfferStatus.REJECTED },
-    });
-
-    // 4. Update shipment links
-    await tx.shipment.update({
-      where: { id: shipment.id },
-      data: {
-        tripId: trip.id,
-        bagType: offer.bagType,
-        pricePerKg: offer.offeredPrice,
+        offerId: offer.id,
+        senderId: shipment.userId,
+        travellerId: offer.travellerId,
+        grossAmount,
+        currency: "USD",
+        paymentGateway: "STRIPE",
+        status: "PENDING_PAYMENT",
       },
     });
 
-    // 5. Create notification for traveller
-    await tx.notification.create({
-      data: {
-        userId: offer.travellerId,
-        title: "Offer Accepted",
-        message: `Your offer of $${offer.offeredPrice} for shipment "${shipment.itemName}" has been accepted!`,
-      },
+    // 4. Create Stripe / Gateway checkout session
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const paymentAdapter = getPaymentAdapter();
+
+    const checkoutResult = await paymentAdapter.createCheckoutSession({
+      transactionId: paymentTx.transactionId,
+      shipmentId: shipment.id,
+      itemName: shipment.itemName,
+      amount: grossAmount,
+      currency: "USD",
+      senderEmail: (shipment as any).user?.email,
+      successUrl: `${frontendUrl}/dashboard/payment-earnings?tab=payments&success=true&tx=${paymentTx.transactionId}`,
+      cancelUrl: `${frontendUrl}/dashboard/my-shipments?cancelled=true`,
     });
 
-    // 6. Call the confirm payment service in shipment inside the same transaction
-    await ShipmentStepService.confirmPayment(shipment.id, user, tx);
-
-    return acceptedOffer;
+    return {
+      offer: pendingOffer,
+      transactionId: paymentTx.transactionId,
+      checkoutUrl: checkoutResult.checkoutUrl,
+    };
   });
 
   return result;
+};
+
+const cancelCheckout = async (offerId: string, user: User) => {
+  const offer = await prisma.offer.findUnique({
+    where: { id: offerId },
+    include: { shipment: true, trip: true },
+  });
+
+  if (!offer) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Offer not found");
+  }
+
+  if (offer.shipment.userId !== user.id && user.role !== "admin") {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      "Only the shipment owner can cancel checkout",
+    );
+  }
+
+  if (offer.status !== OfferStatus.PAYMENT_PENDING) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Only payment pending offers can be canceled",
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Restore trip capacity
+    const weight = offer.shipment.weight;
+    if (offer.bagType === "cabin") {
+      await tx.trip.update({
+        where: { id: offer.tripId },
+        data: { remainingCabinCapacity: { increment: weight } },
+      });
+    } else {
+      await tx.trip.update({
+        where: { id: offer.tripId },
+        data: { remainingCheckInCapacity: { increment: weight } },
+      });
+    }
+
+    // 2. Revert offer status to PENDING
+    const revertedOffer = await tx.offer.update({
+      where: { id: offerId },
+      data: { status: OfferStatus.PENDING },
+    });
+
+    // 3. Mark payment transaction as FAILED
+    await tx.paymentTransaction.updateMany({
+      where: { offerId: offer.id, status: "PENDING_PAYMENT" },
+      data: { status: "FAILED" },
+    });
+
+    return revertedOffer;
+  });
 };
 
 const rejectOffer = async (offerId: string, user: User) => {
@@ -400,5 +476,6 @@ export const OfferService = {
   getReceivedOffers,
   getSentOffers,
   acceptOffer,
+  cancelCheckout,
   rejectOffer,
 };

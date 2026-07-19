@@ -577,9 +577,9 @@ export const openapiDoc = {
                   itemPhotos: {
                     type: "array",
                     items: { type: "string" },
-                    maxItems: 10,
+                    maxItems: 5,
                     description:
-                      "Upload photo URLs (from POST /api/v1/uploads/photos), max 10",
+                      "Upload photo URLs (from POST /api/v1/uploads/photos), max 5",
                   },
                   instructions: { type: "string" },
                   fromCountry: { type: "string", example: "US" },
@@ -1089,7 +1089,6 @@ export const openapiDoc = {
                   "flightTime",
                   "cabinBagCapacity",
                   "checkInBagCapacity",
-                  "ticketPhoto",
                 ],
                 properties: {
                   flightNumber: {
@@ -1398,11 +1397,7 @@ export const openapiDoc = {
             "application/json": {
               schema: {
                 type: "object",
-                required: [
-                  "currentPassword",
-                  "newPassword",
-                  "confirmPassword",
-                ],
+                required: ["currentPassword", "newPassword", "confirmPassword"],
                 properties: {
                   currentPassword: { type: "string" },
                   newPassword: { type: "string", minLength: 8 },
@@ -1415,8 +1410,7 @@ export const openapiDoc = {
         responses: {
           "200": { description: "Password changed successfully" },
           "400": {
-            description:
-              "Passwords do not match or invalid current password",
+            description: "Passwords do not match or invalid current password",
           },
           "401": { description: "Not authenticated" },
         },
@@ -1545,8 +1539,7 @@ export const openapiDoc = {
     },
     "/api/v1/admin/kyc/{id}": {
       patch: {
-        summary:
-          "Review a KYC submission (approve/reject, admin only)",
+        summary: "Review a KYC submission (approve/reject, admin only)",
         operationId: "reviewKyc",
         tags: ["Admin"],
         security: [{ bearerAuth: [] }],
@@ -1595,8 +1588,7 @@ export const openapiDoc = {
     },
     "/api/v1/admin/users/{id}/reactivate": {
       patch: {
-        summary:
-          "Reactivate a deactivated user account (admin only)",
+        summary: "Reactivate a deactivated user account (admin only)",
         operationId: "reactivateUser",
         tags: ["Admin"],
         security: [{ bearerAuth: [] }],
