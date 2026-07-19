@@ -12,13 +12,17 @@ model User {
   banReason     String?
   banned        Boolean?       @default(false)
   role          String?
-  accounts      Account[]
-  notifications Notification[]
-  sessions      Session[]
-  shipments       Shipment[]
-  trips           Trip[]
-  kyc             Kyc?
-  travellerOffers Offer[]    @relation("TravellerOffers")
+  accounts            Account[]
+  notifications       Notification[]
+  sessions            Session[]
+  shipments           Shipment[]
+  trips               Trip[]
+  kyc                 Kyc?
+  travellerOffers     Offer[]              @relation("TravellerOffers")
+  paymentMethods      PaymentMethod[]
+  sentPayments        PaymentTransaction[] @relation("SenderPayments")
+  receivedPayments    PaymentTransaction[] @relation("TravellerPayments")
+  withdrawalRequests  WithdrawalRequest[]
 
   @@map("user")
 }
