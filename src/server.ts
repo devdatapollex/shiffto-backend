@@ -2,6 +2,7 @@ import { Server } from "http";
 import app from "./app";
 import config from "./config/index";
 import { verifyEmailTransport } from "./app/lib/email";
+import { initSocket } from "./app/lib/socket";
 
 async function bootstrap() {
   // This variable will hold our server instance
@@ -14,6 +15,8 @@ async function bootstrap() {
     server = app.listen(config.port, () => {
       console.log(`🚀 Server is running on http://localhost:${config.port}`);
     });
+
+    initSocket(server);
 
     // Function to gracefully shut down the server
     const exitHandler = () => {

@@ -42,8 +42,10 @@ model Shipment {
 
   status ShipmentStatus @default(AWAITING_MATCH)
 
-  shipmentSteps ShipmentStep[] @relation("ShipmentSteps")
-  offers        Offer[]
+  shipmentSteps      ShipmentStep[]      @relation("ShipmentSteps")
+  offers             Offer[]
+  tickets            Ticket[]
+  paymentTransaction PaymentTransaction?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -89,7 +91,7 @@ model ShipmentStep {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Note: a partial unique index on (shipmentId) WHERE isCurrent = true
   // is enforced at the DB level via raw SQL in the migration (see PARTIAL-INDEX-PLAN).
   // Prisma's schema language does not support partial indexes — preserve it manually.
@@ -101,25 +103,27 @@ model ShipmentStep {
 
 enum OfferStatus {
   PENDING
+  PAYMENT_PENDING
   ACCEPTED
   REJECTED
 }
 
 model Offer {
-  id             String      @id @default(uuid(7))
-  shipmentId     String
-  travellerId    String
-  tripId         String
-  senderPrice    Float       // Snapshot of shipment's pricePerKg at time of offer
-  offeredPrice   Float       // What the traveller is offering to pay
-  bagType        String      // "cabin" | "checkIn"
-  status         OfferStatus @default(PENDING)
-  isCounterOffer Boolean     @default(false)
-  shipment       Shipment    @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
-  traveller      User        @relation("TravellerOffers", fields: [travellerId], references: [id])
-  trip           Trip        @relation(fields: [tripId], references: [id])
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id                  String               @id @default(uuid(7))
+  shipmentId          String
+  travellerId         String
+  tripId              String
+  senderPrice         Float // Snapshot of shipment's pricePerKg at time of offer
+  offeredPrice        Float // What the traveller is offering to pay
+  bagType             String // "cabin" | "checkIn"
+  status              OfferStatus          @default(PENDING)
+  isCounterOffer      Boolean              @default(false)
+  shipment            Shipment             @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  traveller           User                 @relation("TravellerOffers", fields: [travellerId], references: [id])
+  trip                Trip                 @relation(fields: [tripId], references: [id])
+  paymentTransactions PaymentTransaction[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([shipmentId, travellerId]) // One active offer per traveller per shipment
   @@index([shipmentId])
