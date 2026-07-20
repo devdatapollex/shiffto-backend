@@ -20,7 +20,12 @@ router.post(
   ShipmentController.createShipment,
 );
 
-router.post("/send-otp", authGuard(), ShipmentController.sendShipmentOtp);
+router.post(
+  "/send-otp",
+  authGuard(),
+  kycGuard(),
+  ShipmentController.sendShipmentOtp,
+);
 
 router.get("/", authGuard(), ShipmentController.getShipments);
 
