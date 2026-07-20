@@ -187,47 +187,16 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
 };
 
 const getShipmentById = async (id: string, user: User) => {
-  const shipment = await prisma.shipment.findUnique({
-    where: { id },
-    include: {
-      category: true,
-      paymentTransaction: true,
-      user: {
-        select: { id: true, name: true, email: true, phone: true, image: true },
-      },
-      trip: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              image: true,
-            },
-          },
-        },
-      },
-      shipmentSteps: {
-        include: { definition: true },
-        orderBy: { order: "asc" },
-      },
-    },
+  const result = await prisma.shipment.findFirst({
+    where: { id, userId: user.role !== "admin" ? user.id : undefined },
+    include: { category: true },
   });
 
-  if (!shipment) {
+  if (!result) {
     throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
   }
 
-  if (
-    user.role !== "admin" &&
-    shipment.userId !== user.id &&
-    shipment.trip?.userId !== user.id
-  ) {
-    throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
-  }
-
-  return shipment;
+  return result;
 };
 
 const getShipmentSteps = async (shipmentId: string, user: User) => {
@@ -337,6 +306,7 @@ const getShipmentDetails = async (id: string, user: User) => {
     },
     include: {
       category: true,
+      paymentTransaction: true,
       shipmentSteps: {
         include: { definition: true },
         orderBy: { order: "asc" },
@@ -385,7 +355,31 @@ const getShipmentDetails = async (id: string, user: User) => {
     }
   }
 
-  return { ...result, trip: tripData };
+  // Role-based payment data scoping:
+  let scopedPaymentTransaction = null;
+  if (result.paymentTransaction) {
+    if (user.role === "admin") {
+      // Admin gets full payment transaction details
+      scopedPaymentTransaction = result.paymentTransaction;
+    } else if (user.id === result.userId) {
+      // Sender gets transaction overview (excluding internal gateway credentials)
+      const { gatewayTxnId, ...senderPayment } = result.paymentTransaction;
+      scopedPaymentTransaction = senderPayment;
+    } else if (tripData?.user?.id === user.id) {
+      // Assigned traveler gets earnings/release status only
+      scopedPaymentTransaction = {
+        status: result.paymentTransaction.status,
+        grossAmount: result.paymentTransaction.grossAmount,
+        releasedAt: result.paymentTransaction.releasedAt,
+      };
+    }
+  }
+
+  return {
+    ...result,
+    trip: tripData,
+    paymentTransaction: scopedPaymentTransaction,
+  };
 };
 
 export const ShipmentService = {
