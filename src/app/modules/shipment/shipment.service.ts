@@ -299,15 +299,14 @@ const getShipmentDetails = async (id: string, user: User) => {
   const result = await prisma.shipment.findFirst({
     where: {
       id,
-      OR: user.role === "admin"
-        ? undefined
-        : [
-            { userId: user.id },
-            { trip: { userId: user.id } },
-          ],
+      OR:
+        user.role === "admin"
+          ? undefined
+          : [{ userId: user.id }, { trip: { userId: user.id } }],
     },
     include: {
       category: true,
+      paymentTransaction: true,
       shipmentSteps: {
         include: { definition: true },
         orderBy: { order: "asc" },
@@ -356,7 +355,31 @@ const getShipmentDetails = async (id: string, user: User) => {
     }
   }
 
-  return { ...result, trip: tripData };
+  // Role-based payment data scoping:
+  let scopedPaymentTransaction = null;
+  if (result.paymentTransaction) {
+    if (user.role === "admin") {
+      // Admin gets full payment transaction details
+      scopedPaymentTransaction = result.paymentTransaction;
+    } else if (user.id === result.userId) {
+      // Sender gets transaction overview (excluding internal gateway credentials)
+      const { gatewayTxnId, ...senderPayment } = result.paymentTransaction;
+      scopedPaymentTransaction = senderPayment;
+    } else if (tripData?.user?.id === user.id) {
+      // Assigned traveler gets earnings/release status only
+      scopedPaymentTransaction = {
+        status: result.paymentTransaction.status,
+        grossAmount: result.paymentTransaction.grossAmount,
+        releasedAt: result.paymentTransaction.releasedAt,
+      };
+    }
+  }
+
+  return {
+    ...result,
+    trip: tripData,
+    paymentTransaction: scopedPaymentTransaction,
+  };
 };
 
 export const ShipmentService = {

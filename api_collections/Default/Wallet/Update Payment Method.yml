@@ -1,0 +1,21 @@
+name: Update Payment Method
+type: http
+seq: 3
+
+request:
+  url: "{{baseUrl}}/api/v1/wallet/pm_id_here"
+  method: PUT
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "accountName": "Jane Doe Updated",
+        "accountNumber": "01799999999"
+      }
+
+auth:
+  type: bearer
+  token: "{{token}}"

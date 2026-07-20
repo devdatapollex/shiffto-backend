@@ -1,0 +1,14 @@
+name: Cancel Checkout
+type: http
+seq: 5
+
+request:
+  url: "{{baseUrl}}/api/v1/offers/offer_id_here/cancel-checkout"
+  method: POST
+  headers: []
+  body:
+    type: none
+
+auth:
+  type: bearer
+  token: "{{token}}"

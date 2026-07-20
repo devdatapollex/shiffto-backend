@@ -1,0 +1,14 @@
+name: Get All Withdrawals (Admin)
+type: http
+seq: 4
+
+request:
+  url: "{{baseUrl}}/api/v1/withdrawals/admin/all"
+  method: GET
+  headers: []
+  body:
+    type: none
+
+auth:
+  type: bearer
+  token: "{{token}}"

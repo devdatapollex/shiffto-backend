@@ -1,0 +1,14 @@
+name: Get Admin Settings
+type: http
+seq: 4
+
+request:
+  url: "{{baseUrl}}/api/v1/admin/settings"
+  method: GET
+  headers: []
+  body:
+    type: none
+
+auth:
+  type: bearer
+  token: "{{token}}"

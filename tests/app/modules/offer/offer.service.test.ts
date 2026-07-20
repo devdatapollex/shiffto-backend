@@ -29,11 +29,18 @@ const mockNotification = {
   create: vi.fn(),
 };
 
+const mockPaymentTransaction = {
+  create: vi.fn().mockResolvedValue({ transactionId: "SHP-123456" }),
+  update: vi.fn(),
+  updateMany: vi.fn(),
+};
+
 const mockPrisma = {
   offer: mockOffer,
   shipment: mockShipment,
   trip: mockTrip,
   notification: mockNotification,
+  paymentTransaction: mockPaymentTransaction,
   $transaction: vi.fn((cb: (tx: typeof mockPrisma) => Promise<unknown>) =>
     cb(mockPrisma),
   ),
@@ -50,6 +57,15 @@ const mockShipmentStepService = {
 
 vi.mock("../../../../src/app/modules/shipment/shipment-step.service", () => ({
   ShipmentStepService: mockShipmentStepService,
+}));
+
+vi.mock("../../../../src/app/modules/payment/payment.adapter", () => ({
+  getPaymentAdapter: () => ({
+    createCheckoutSession: vi.fn().mockResolvedValue({
+      checkoutUrl: "https://checkout.stripe.com/c/pay/cs_test_123",
+      sessionGatewayId: "cs_test_123",
+    }),
+  }),
 }));
 
 describe("OfferService", () => {
@@ -260,16 +276,17 @@ describe("OfferService", () => {
 
     it("should accept offer and deduct capacity inside transaction", async () => {
       mockOffer.findUnique.mockResolvedValueOnce(mockOfferData);
+      mockOffer.findFirst.mockResolvedValueOnce(null);
       mockTrip.findUnique.mockResolvedValue(mockOfferData.trip);
       mockOffer.update.mockResolvedValue({
         ...mockOfferData,
-        status: OfferStatus.ACCEPTED,
+        status: OfferStatus.PAYMENT_PENDING,
       });
-      mockOffer.findUnique.mockResolvedValueOnce({
-        ...mockOfferData,
-        status: OfferStatus.ACCEPTED,
+      mockPaymentTransaction.create.mockResolvedValue({
+        id: "tx-1",
+        transactionId: "SHP-123456",
+        grossAmount: 67.5,
       });
-      mockShipmentStepService.confirmPayment.mockResolvedValue([]);
 
       const { OfferService } = await importService();
       const result = await OfferService.acceptOffer(
@@ -277,36 +294,19 @@ describe("OfferService", () => {
         mockSenderUser as any,
       );
       expect(result).toBeDefined();
+      expect(result.checkoutUrl).toBeDefined();
 
       expect(mockTrip.update).toHaveBeenCalledWith({
         where: { id: "trip-1" },
         data: { remainingCheckInCapacity: { decrement: 1.5 } },
       });
 
-      expect(mockOffer.updateMany).toHaveBeenCalledWith({
-        where: {
-          shipmentId: "shipment-1",
-          id: { not: "offer-1" },
-          status: OfferStatus.PENDING,
-        },
-        data: { status: OfferStatus.REJECTED },
+      expect(mockOffer.update).toHaveBeenCalledWith({
+        where: { id: "offer-1" },
+        data: { status: OfferStatus.PAYMENT_PENDING },
       });
 
-      expect(mockShipment.update).toHaveBeenCalledWith({
-        where: { id: "shipment-1" },
-        data: {
-          tripId: "trip-1",
-          bagType: "checkIn",
-          pricePerKg: 45,
-        },
-      });
-
-      expect(mockNotification.create).toHaveBeenCalled();
-      expect(mockShipmentStepService.confirmPayment).toHaveBeenCalledWith(
-        "shipment-1",
-        mockSenderUser,
-        mockPrisma,
-      );
+      expect(mockPaymentTransaction.create).toHaveBeenCalled();
     });
 
     it("should throw error if non-owner tries to accept", async () => {

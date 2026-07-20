@@ -1,0 +1,105 @@
+enum PaymentStatus {
+  PENDING_PAYMENT
+  ESCROWED
+  PENDING_RELEASE
+  RELEASED
+  REFUNDED
+  FAILED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentMethodType {
+  BKASH
+  NAGAD
+  BANK_ACCOUNT
+  CRYPTO
+  CARD
+}
+
+model PaymentMethod {
+  id            String            @id @default(uuid(7))
+  userId        String
+  type          PaymentMethodType
+  accountName   String?
+  accountNumber String
+  bankName      String?
+  branchName    String?
+  routingNumber String?
+  cryptoAddress String?
+  isPrimary     Boolean           @default(false)
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([userId])
+  @@map("payment_methods")
+}
+
+model PaymentTransaction {
+  id             String        @id @default(uuid(7))
+  transactionId  String        @unique
+  shipmentId     String        @unique
+  offerId        String
+  senderId       String
+  travellerId    String
+  grossAmount    Float
+  currency       String        @default("USD")
+  paymentGateway String        @default("STRIPE")
+  gatewayTxnId   String?
+  status         PaymentStatus @default(PENDING_PAYMENT)
+  proofPhotoUrl  String?
+  releasedAt     DateTime?
+  releasedBy     String?
+
+  shipment  Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  sender    User     @relation("SenderPayments", fields: [senderId], references: [id])
+  traveller User     @relation("TravellerPayments", fields: [travellerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([travellerId])
+  @@index([shipmentId])
+  @@map("payment_transactions")
+}
+
+model WithdrawalRequest {
+  id                   String           @id @default(uuid(7))
+  withdrawalNo         String           @unique
+  userId               String
+  grossAmount          Float
+  commissionRate       Float
+  commissionAmount     Float
+  netAmount            Float
+  paymentMethodId      String?
+  paymentMethodDetails Json?
+  payoutTxnId          String?
+  status               WithdrawalStatus @default(PENDING)
+  rejectionReason      String?
+  processedAt          DateTime?
+  processedBy          String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("withdrawal_requests")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}

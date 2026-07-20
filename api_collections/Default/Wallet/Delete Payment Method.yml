@@ -1,0 +1,14 @@
+name: Delete Payment Method
+type: http
+seq: 4
+
+request:
+  url: "{{baseUrl}}/api/v1/wallet/pm_id_here"
+  method: DELETE
+  headers: []
+  body:
+    type: none
+
+auth:
+  type: bearer
+  token: "{{token}}"

@@ -1,0 +1,14 @@
+name: Set Primary Payment Method
+type: http
+seq: 5
+
+request:
+  url: "{{baseUrl}}/api/v1/wallet/pm_id_here/primary"
+  method: PATCH
+  headers: []
+  body:
+    type: none
+
+auth:
+  type: bearer
+  token: "{{token}}"

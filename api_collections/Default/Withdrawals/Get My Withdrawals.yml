@@ -1,0 +1,14 @@
+name: Get My Withdrawals
+type: http
+seq: 3
+
+request:
+  url: "{{baseUrl}}/api/v1/withdrawals/my-withdrawals"
+  method: GET
+  headers: []
+  body:
+    type: none
+
+auth:
+  type: bearer
+  token: "{{token}}"

@@ -1,24 +1,39 @@
 model User {
-  id            String         @id
-  name          String
-  email         String         @unique
-  emailVerified Boolean        @default(false)
-  image         String?
-  phone         String?
-  isDeactivated Boolean        @default(false)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  banExpires    DateTime?
-  banReason     String?
-  banned        Boolean?       @default(false)
-  role          String?
-  accounts      Account[]
-  notifications Notification[]
-  sessions      Session[]
+  id              String          @id
+  name            String
+  email           String          @unique
+  emailVerified   Boolean         @default(false)
+  image           String?
+  phone           String?
+  isDeactivated   Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  banExpires      DateTime?
+  banReason       String?
+  banned          Boolean?        @default(false)
+  role            String?
+  accounts        Account[]
+  notifications   Notification[]
+  sessions        Session[]
   shipments       Shipment[]
   trips           Trip[]
   kyc             Kyc?
-  travellerOffers Offer[]    @relation("TravellerOffers")
+  travellerOffers Offer[]         @relation("TravellerOffers")
+  paymentMethods  PaymentMethod[]
+  tickets         Ticket[]        @relation("UserTickets")
+
+  sentPayments       PaymentTransaction[] @relation("SenderPayments")
+  receivedPayments   PaymentTransaction[] @relation("TravellerPayments")
+  withdrawalRequests WithdrawalRequest[]
+
+  status          String          @default("ACTIVE") // "ACTIVE" | "SUSPENDED" | "DEACTIVATED" | "PENDING_KYC"
+  trustScore      Float           @default(100.0)
+  commissionRate  Float           @default(0.0)
+  reviewsGiven    Review[]        @relation("Reviewer")
+  reviewsReceived Review[]        @relation("Reviewee")
+
+  assignedTickets Ticket[]        @relation("AssignedTickets")
+  ticketComments  TicketComment[]
 
   @@map("user")
 }
@@ -27,7 +42,7 @@ model Kyc {
   id              String   @id @default(uuid())
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documentType    String   // "PASSPORT" | "DRIVING_LICENSE" | "NID"
+  documentType    String // "PASSPORT" | "DRIVING_LICENSE" | "NID"
   documentNumber  String
   nationality     String
   phoneNumber     String
@@ -90,3 +105,17 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+model Review {
+  id         String   @id @default(uuid())
+  rating     Int      // 1 to 5
+  comment    String?
+  reviewerId String
+  reviewer   User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  revieweeId String
+  reviewee   User     @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@map("reviews")
+}
+

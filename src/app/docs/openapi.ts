@@ -577,9 +577,9 @@ export const openapiDoc = {
                   itemPhotos: {
                     type: "array",
                     items: { type: "string" },
-                    maxItems: 10,
+                    maxItems: 5,
                     description:
-                      "Upload photo URLs (from POST /api/v1/uploads/photos), max 10",
+                      "Upload photo URLs (from POST /api/v1/uploads/photos), max 5",
                   },
                   instructions: { type: "string" },
                   fromCountry: { type: "string", example: "US" },
@@ -1089,7 +1089,6 @@ export const openapiDoc = {
                   "flightTime",
                   "cabinBagCapacity",
                   "checkInBagCapacity",
-                  "ticketPhoto",
                 ],
                 properties: {
                   flightNumber: {
@@ -1398,11 +1397,7 @@ export const openapiDoc = {
             "application/json": {
               schema: {
                 type: "object",
-                required: [
-                  "currentPassword",
-                  "newPassword",
-                  "confirmPassword",
-                ],
+                required: ["currentPassword", "newPassword", "confirmPassword"],
                 properties: {
                   currentPassword: { type: "string" },
                   newPassword: { type: "string", minLength: 8 },
@@ -1415,8 +1410,7 @@ export const openapiDoc = {
         responses: {
           "200": { description: "Password changed successfully" },
           "400": {
-            description:
-              "Passwords do not match or invalid current password",
+            description: "Passwords do not match or invalid current password",
           },
           "401": { description: "Not authenticated" },
         },
@@ -1545,8 +1539,7 @@ export const openapiDoc = {
     },
     "/api/v1/admin/kyc/{id}": {
       patch: {
-        summary:
-          "Review a KYC submission (approve/reject, admin only)",
+        summary: "Review a KYC submission (approve/reject, admin only)",
         operationId: "reviewKyc",
         tags: ["Admin"],
         security: [{ bearerAuth: [] }],
@@ -1595,8 +1588,7 @@ export const openapiDoc = {
     },
     "/api/v1/admin/users/{id}/reactivate": {
       patch: {
-        summary:
-          "Reactivate a deactivated user account (admin only)",
+        summary: "Reactivate a deactivated user account (admin only)",
         operationId: "reactivateUser",
         tags: ["Admin"],
         security: [{ bearerAuth: [] }],
@@ -1828,6 +1820,341 @@ export const openapiDoc = {
           "401": { description: "Not authenticated" },
           "403": { description: "Only shipment owner can reject" },
           "404": { description: "Offer not found" },
+        },
+      },
+    },
+    "/api/v1/offers/{id}/cancel-checkout": {
+      post: {
+        summary: "Cancel an active payment checkout session for an offer",
+        operationId: "cancelCheckout",
+        tags: ["Offers"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "Checkout cancelled and offer unlocked" },
+          "400": { description: "Offer is not in PAYMENT_PENDING state" },
+          "401": { description: "Not authenticated" },
+        },
+      },
+    },
+
+    // ── Payments ──────────────────────────────────────────────────────
+    "/api/v1/payments/sender-summary": {
+      get: {
+        summary: "Get payment summary and transaction history for sender",
+        operationId: "getSenderPaymentsSummary",
+        tags: ["Payments"],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": { description: "Sender payment summary fetched successfully" },
+          "401": { description: "Not authenticated" },
+        },
+      },
+    },
+    "/api/v1/payments/traveler-summary": {
+      get: {
+        summary: "Get earnings summary and withdrawal history for traveler",
+        operationId: "getTravelerEarningsSummary",
+        tags: ["Payments"],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Traveler earnings summary fetched successfully",
+          },
+          "401": { description: "Not authenticated" },
+        },
+      },
+    },
+    "/api/v1/payments/{transactionId}/release": {
+      post: {
+        summary: "Release escrowed payment to traveler (Admin only)",
+        operationId: "releasePayment",
+        tags: ["Payments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "transactionId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "Payment released to traveler successfully" },
+          "400": { description: "Transaction not in releasable status" },
+          "403": { description: "Admin access required" },
+        },
+      },
+    },
+    "/api/v1/payments/stripe/webhook": {
+      post: {
+        summary: "Stripe Webhook handler",
+        operationId: "handleStripeWebhook",
+        tags: ["Payments"],
+        responses: {
+          "200": { description: "Webhook event processed" },
+          "400": { description: "Invalid signature or body" },
+        },
+      },
+    },
+
+    // ── Wallet ────────────────────────────────────────────────────────
+    "/api/v1/wallet": {
+      get: {
+        summary: "Get all payment methods for logged in user",
+        operationId: "getMyPaymentMethods",
+        tags: ["Wallet"],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": { description: "Payment methods fetched" },
+        },
+      },
+      post: {
+        summary: "Add a new payment method",
+        operationId: "addPaymentMethod",
+        tags: ["Wallet"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["type"],
+                properties: {
+                  type: {
+                    type: "string",
+                    enum: ["BKASH", "NAGAD", "BANK_ACCOUNT", "CRYPTO", "CARD"],
+                  },
+                  accountName: { type: "string" },
+                  accountNumber: { type: "string" },
+                  bankName: { type: "string" },
+                  branchName: { type: "string" },
+                  routingNumber: { type: "string" },
+                  cryptoAddress: { type: "string" },
+                  isPrimary: { type: "boolean" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Payment method created" },
+        },
+      },
+    },
+    "/api/v1/wallet/{id}": {
+      put: {
+        summary: "Update payment method details",
+        operationId: "updatePaymentMethod",
+        tags: ["Wallet"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "Payment method updated" },
+        },
+      },
+      delete: {
+        summary: "Delete a payment method",
+        operationId: "deletePaymentMethod",
+        tags: ["Wallet"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "Payment method deleted" },
+        },
+      },
+    },
+    "/api/v1/wallet/{id}/primary": {
+      patch: {
+        summary: "Set payment method as primary",
+        operationId: "setPrimaryPaymentMethod",
+        tags: ["Wallet"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "Primary payment method set" },
+        },
+      },
+    },
+
+    // ── Withdrawals ───────────────────────────────────────────────────
+    "/api/v1/withdrawals/request": {
+      post: {
+        summary: "Request fund withdrawal",
+        operationId: "requestWithdrawal",
+        tags: ["Withdrawals"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["amount"],
+                properties: {
+                  amount: { type: "number" },
+                  paymentMethodId: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Withdrawal request submitted" },
+        },
+      },
+    },
+    "/api/v1/withdrawals/my-withdrawals": {
+      get: {
+        summary: "Get logged-in traveler withdrawal history",
+        operationId: "getMyWithdrawals",
+        tags: ["Withdrawals"],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": { description: "Withdrawal history fetched" },
+        },
+      },
+    },
+    "/api/v1/withdrawals/admin/all": {
+      get: {
+        summary: "Get all withdrawal requests (Admin only)",
+        operationId: "getAllWithdrawals",
+        tags: ["Withdrawals"],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": { description: "Admin withdrawals list fetched" },
+        },
+      },
+    },
+    "/api/v1/withdrawals/admin/{id}/approve": {
+      patch: {
+        summary:
+          "Approve withdrawal request and enter payout transaction ID (Admin only)",
+        operationId: "approveWithdrawal",
+        tags: ["Withdrawals"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["payoutTxnId"],
+                properties: {
+                  payoutTxnId: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Withdrawal approved" },
+        },
+      },
+    },
+    "/api/v1/withdrawals/admin/{id}/reject": {
+      patch: {
+        summary: "Reject withdrawal request (Admin only)",
+        operationId: "rejectWithdrawal",
+        tags: ["Withdrawals"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  rejectionReason: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Withdrawal rejected" },
+        },
+      },
+    },
+
+    // ── Admin Settings ────────────────────────────────────────────────
+    "/api/v1/admin/settings": {
+      get: {
+        summary: "Get platform system settings (Admin only)",
+        operationId: "getAdminSettings",
+        tags: ["Admin"],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": { description: "Admin settings fetched" },
+        },
+      },
+    },
+    "/api/v1/admin/settings/commission-rate": {
+      patch: {
+        summary: "Update withdrawal commission rate (Admin only)",
+        operationId: "updateCommissionRate",
+        tags: ["Admin"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["commissionRate"],
+                properties: {
+                  commissionRate: { type: "number", example: 0.3 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Commission rate updated" },
         },
       },
     },

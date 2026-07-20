@@ -1,15 +1,14 @@
-info:
-  name: Accept Offer
-  type: http
-  seq: 4
+name: Accept Offer
+type: http
+seq: 4
 
-http:
+request:
+  url: "{{baseUrl}}/api/v1/offers/offer_id_here/accept"
   method: POST
-  url: "{{localurl}}/api/v1/offers/{{offerId}}/accept"
-  auth: inherit
+  headers: []
+  body:
+    type: none
 
-settings:
-  encodeUrl: true
-  timeout: 0
-  followRedirects: true
-  maxRedirects: 5
+auth:
+  type: bearer
+  token: "{{token}}"
