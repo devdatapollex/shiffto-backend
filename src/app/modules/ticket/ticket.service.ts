@@ -444,11 +444,8 @@ const addComment = async (
       resolvedVisibleTo = visibleTo;
     }
   } else {
-    if (ticket.senderId === userId) {
-      resolvedVisibleTo = "SENDER";
-    } else if (ticket.travelerId === userId) {
-      resolvedVisibleTo = "TRAVELER";
-    }
+    const isTraveler = ticket.travelerId === userId && ticket.senderId !== userId;
+    resolvedVisibleTo = isTraveler ? "TRAVELER" : "SENDER";
   }
 
   const comment = await prisma.ticketComment.create({
@@ -611,15 +608,15 @@ const getTicketDetails = async (
 
   // Filter comments based on role/privacy
   if (userRole !== "admin") {
-    const isSender = ticket.senderId === userId;
-    const isTraveler = ticket.travelerId === userId;
+    const isTraveler = ticket.travelerId === userId && ticket.senderId !== userId;
+    const userRoleTag = isTraveler ? "TRAVELER" : "SENDER";
 
-    if (isSender || isTraveler) {
-      const allowedVisibility = ["ALL", isSender ? "SENDER" : "TRAVELER"];
-      ticket.comments = ticket.comments.filter((c) =>
-        allowedVisibility.includes(c.visibleTo),
-      );
-    }
+    ticket.comments = ticket.comments.filter((c) => {
+      if (c.user.role === "admin") {
+        return c.visibleTo === "ALL" || c.visibleTo === userRoleTag;
+      }
+      return c.userId === userId;
+    });
   }
 
   return ticket;
