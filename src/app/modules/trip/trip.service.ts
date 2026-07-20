@@ -8,6 +8,13 @@ import config from "../../../config";
 import { ShipmentStatus } from "../../../generated/prisma/enums";
 
 const createTrip = async (data: any, user: User) => {
+  if (data.fromCountry.toLowerCase() === data.toCountry.toLowerCase()) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "From country and to country cannot be the same",
+    );
+  }
+
   const tripDate = new Date(data.flightDate);
   if (isNaN(tripDate.getTime())) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid flight date format");
@@ -204,6 +211,22 @@ const updateTrip = async (id: string, data: any, user: User) => {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       "Cannot update trip details after accepting shipments",
+    );
+  }
+
+  const finalFromCountry =
+    data.fromCountry !== undefined ? data.fromCountry : trip.fromCountry;
+  const finalToCountry =
+    data.toCountry !== undefined ? data.toCountry : trip.toCountry;
+
+  if (
+    finalFromCountry &&
+    finalToCountry &&
+    finalFromCountry.toLowerCase() === finalToCountry.toLowerCase()
+  ) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "From country and to country cannot be the same",
     );
   }
 
@@ -597,6 +620,11 @@ const getAvailableShipments = async (
     orderBy: { createdAt: "desc" },
     include: {
       category: true,
+      offers: {
+        where: {
+          travellerId: user.id,
+        },
+      },
     },
   });
 
