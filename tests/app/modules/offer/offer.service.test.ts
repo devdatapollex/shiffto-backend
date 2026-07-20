@@ -59,6 +59,15 @@ vi.mock("../../../../src/app/modules/shipment/shipment-step.service", () => ({
   ShipmentStepService: mockShipmentStepService,
 }));
 
+vi.mock("../../../../src/app/modules/payment/payment.adapter", () => ({
+  getPaymentAdapter: () => ({
+    createCheckoutSession: vi.fn().mockResolvedValue({
+      checkoutUrl: "https://checkout.stripe.com/c/pay/cs_test_123",
+      sessionGatewayId: "cs_test_123",
+    }),
+  }),
+}));
+
 describe("OfferService", () => {
   const mockUser = {
     id: "user-1",
