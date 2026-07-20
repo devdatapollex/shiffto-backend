@@ -65,6 +65,12 @@ describe("auth configuration", () => {
         database: "prisma-adapter",
         emailAndPassword: {
           enabled: true,
+          autoSignIn: false,
+          requireEmailVerification: true,
+        },
+        emailVerification: {
+          sendOnSignUp: false,
+          autoSignInAfterVerification: true,
         },
         socialProviders: {
           google: {
@@ -79,7 +85,7 @@ describe("auth configuration", () => {
             id: "email-otp",
             options: {
               sendVerificationOTP: expect.any(Function),
-              sendVerificationOnSignUp: true,
+              sendVerificationOnSignUp: false,
               overrideDefaultEmailVerification: true,
             },
           },

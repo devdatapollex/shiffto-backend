@@ -22,7 +22,12 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    // requireEmailVerification: true,
+    autoSignIn: false,
+    requireEmailVerification: true,
+  },
+  emailVerification: {
+    sendOnSignUp: false,
+    autoSignInAfterVerification: true,
   },
   socialProviders: {
     google: {
@@ -35,7 +40,7 @@ export const auth = betterAuth({
     bearer(),
     emailOTP({
       sendVerificationOTP,
-      sendVerificationOnSignUp: true,
+      sendVerificationOnSignUp: false,
       overrideDefaultEmailVerification: true,
     }),
     adminPlugin({
