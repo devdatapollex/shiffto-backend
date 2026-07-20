@@ -26,6 +26,12 @@ model User {
   receivedPayments   PaymentTransaction[] @relation("TravellerPayments")
   withdrawalRequests WithdrawalRequest[]
 
+  status          String          @default("ACTIVE") // "ACTIVE" | "SUSPENDED" | "DEACTIVATED" | "PENDING_KYC"
+  trustScore      Float           @default(100.0)
+  commissionRate  Float           @default(0.0)
+  reviewsGiven    Review[]        @relation("Reviewer")
+  reviewsReceived Review[]        @relation("Reviewee")
+
   assignedTickets Ticket[]        @relation("AssignedTickets")
   ticketComments  TicketComment[]
 
@@ -99,3 +105,17 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+model Review {
+  id         String   @id @default(uuid())
+  rating     Int      // 1 to 5
+  comment    String?
+  reviewerId String
+  reviewer   User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  revieweeId String
+  reviewee   User     @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@map("reviews")
+}
+
