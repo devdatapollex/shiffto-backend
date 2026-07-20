@@ -70,6 +70,17 @@ const deleteAccount = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAnalytics = catchAsync(async (req: Request, res: Response) => {
+  const result = await ProfileService.getAnalytics(req.user!.id);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "User analytics fetched successfully",
+    data: result,
+  });
+});
+
 export const ProfileController = {
   getProfile,
   updateProfile,
@@ -77,4 +88,5 @@ export const ProfileController = {
   submitKyc,
   deactivateAccount,
   deleteAccount,
+  getAnalytics,
 };
