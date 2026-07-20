@@ -67,6 +67,16 @@ const createShipment = async (
 ) => {
   const { otp, ...shipmentData } = data;
 
+  if (
+    shipmentData.fromCountry.toLowerCase() ===
+    shipmentData.toCountry.toLowerCase()
+  ) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Origin country and destination country cannot be the same",
+    );
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     await ShipmentOtpService.verifyShipmentOtp(user.email, otp, tx);
 
@@ -237,6 +247,22 @@ const updateShipment = async (
 
   if (!existing) {
     throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
+  }
+
+  const finalFromCountry =
+    data.fromCountry !== undefined ? data.fromCountry : existing.fromCountry;
+  const finalToCountry =
+    data.toCountry !== undefined ? data.toCountry : existing.toCountry;
+
+  if (
+    finalFromCountry &&
+    finalToCountry &&
+    finalFromCountry.toLowerCase() === finalToCountry.toLowerCase()
+  ) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Origin country and destination country cannot be the same",
+    );
   }
 
   if (data.categoryId || data.weight || data.quantity || data.pricePerKg) {
