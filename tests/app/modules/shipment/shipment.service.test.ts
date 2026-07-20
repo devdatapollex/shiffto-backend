@@ -254,6 +254,22 @@ describe("ShipmentService", () => {
       });
     });
 
+    it("throws 400 when fromCountry and toCountry are the same", async () => {
+      const sameCountryData = {
+        ...fullData,
+        fromCountry: "US",
+        toCountry: "US",
+      };
+
+      const { ShipmentService } = await importService();
+      await expect(
+        ShipmentService.createShipment(sameCountryData, mockUser),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Origin country and destination country cannot be the same",
+      });
+    });
+
     it("throws 400 and does not create shipment when OTP is invalid", async () => {
       mockVerification.findFirst.mockResolvedValue({
         ...validOtpRecord,
@@ -613,6 +629,58 @@ describe("ShipmentService", () => {
       );
     });
 
+    it("throws 400 if updated source and destination are the same", async () => {
+      mockShipment.findUnique.mockResolvedValue({
+        id: "ship-1",
+        userId,
+        categoryId: "cat-1",
+        weight: 5,
+        quantity: 2,
+        pricePerKg: 100,
+        fromCountry: "US",
+        toCountry: "BD",
+        itemPhotos: [],
+      });
+
+      const { ShipmentService } = await importService();
+      await expect(
+        ShipmentService.updateShipment(
+          "ship-1",
+          { fromCountry: "CA", toCountry: "CA" },
+          mockUser,
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Origin country and destination country cannot be the same",
+      });
+    });
+
+    it("throws 400 if updating only fromCountry to be the same as existing toCountry", async () => {
+      mockShipment.findUnique.mockResolvedValue({
+        id: "ship-1",
+        userId,
+        categoryId: "cat-1",
+        weight: 5,
+        quantity: 2,
+        pricePerKg: 100,
+        fromCountry: "US",
+        toCountry: "BD",
+        itemPhotos: [],
+      });
+
+      const { ShipmentService } = await importService();
+      await expect(
+        ShipmentService.updateShipment(
+          "ship-1",
+          { fromCountry: "BD" },
+          mockUser,
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Origin country and destination country cannot be the same",
+      });
+    });
+
     it("throws 404 if not owner", async () => {
       mockShipment.findUnique.mockResolvedValue(null);
 
@@ -692,11 +760,20 @@ describe("ShipmentService", () => {
         checkInBagCapacity: 20,
         remainingCabinCapacity: 5,
         remainingCheckInCapacity: 15,
-        user: { id: "traveler-1", name: "Bob", email: "bob@example.com", image: null, phone: "123" },
+        user: {
+          id: "traveler-1",
+          name: "Bob",
+          email: "bob@example.com",
+          image: null,
+          phone: "123",
+        },
       });
 
       const { ShipmentService } = await importService();
-      const result = await ShipmentService.getShipmentDetails("ship-1", mockUser);
+      const result = await ShipmentService.getShipmentDetails(
+        "ship-1",
+        mockUser,
+      );
 
       expect(result.id).toBe("ship-1");
       expect(result.trip).toEqual(
@@ -705,7 +782,7 @@ describe("ShipmentService", () => {
           flightNumber: "TR123",
           totalCapacity: 30,
           remainingCapacity: 20,
-        })
+        }),
       );
     });
 
