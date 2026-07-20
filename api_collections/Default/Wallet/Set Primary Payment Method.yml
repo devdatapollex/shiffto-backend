@@ -1,10 +1,10 @@
-name: Cancel Checkout
+name: Set Primary Payment Method
 type: http
 seq: 5
 
 request:
-  url: "{{baseUrl}}/api/v1/offers/offer_id_here/cancel-checkout"
-  method: POST
+  url: "{{baseUrl}}/api/v1/wallet/pm_id_here/primary"
+  method: PATCH
   headers: []
   body:
     type: none
