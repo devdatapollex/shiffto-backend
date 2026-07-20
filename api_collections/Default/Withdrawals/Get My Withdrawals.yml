@@ -1,10 +1,10 @@
-name: Accept Offer
+name: Get My Withdrawals
 type: http
-seq: 4
+seq: 3
 
 request:
-  url: "{{baseUrl}}/api/v1/offers/offer_id_here/accept"
-  method: POST
+  url: "{{baseUrl}}/api/v1/withdrawals/my-withdrawals"
+  method: GET
   headers: []
   body:
     type: none
