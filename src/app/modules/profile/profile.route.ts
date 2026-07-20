@@ -7,6 +7,7 @@ import { ProfileValidation } from "./profile.validation";
 const router = express.Router();
 
 router.get("/", authGuard(), ProfileController.getProfile);
+router.get("/analytics", authGuard(), ProfileController.getAnalytics);
 
 router.patch(
   "/",

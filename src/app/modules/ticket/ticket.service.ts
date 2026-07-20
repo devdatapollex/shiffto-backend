@@ -186,12 +186,11 @@ const getAssociatedRecords = async (userId: string) => {
     })),
   };
 };
-
 const createTicket = async (userId: string, data: CreateTicketDto) => {
   const { category, title, description, shipmentId, tripId, attachments } =
     data;
 
-  const validCategories = ["PAYMENT", "DELIVERY", "KYC", "TECHNICAL", "OTHER"];
+  const validCategories = ["ORDER", "TRIP", "PAYMENT", "DELIVERY", "KYC", "TECHNICAL", "OTHER"];
   const upperCategory = category?.toUpperCase();
 
   if (!validCategories.includes(upperCategory)) {
@@ -208,21 +207,32 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
     );
   }
 
+  let resolvedSenderId: string | null = null;
+  let resolvedTravelerId: string | null = null;
+
   // Validate shipment if provided
   if (shipmentId) {
     const shipment = await prisma.shipment.findUnique({
       where: { id: shipmentId },
       include: {
+        trip: true,
         shipmentSteps: {
           where: { stage: shipmentStepStage.DELIVERED },
         },
       },
     });
 
-    if (!shipment || shipment.userId !== userId) {
+    if (!shipment) {
       throw new ApiError(
         httpStatus.NOT_FOUND,
         "Associated shipment not found.",
+      );
+    }
+
+    if (shipment.userId !== userId && shipment.trip?.userId !== userId) {
+      throw new ApiError(
+        httpStatus.FORBIDDEN,
+        "Access denied. You are not a party to this shipment.",
       );
     }
 
@@ -249,16 +259,32 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
         );
       }
     }
+
+    resolvedSenderId = shipment.userId;
+    resolvedTravelerId = shipment.trip?.userId || null;
   }
 
   // Validate trip if provided
   if (tripId) {
     const trip = await prisma.trip.findUnique({
       where: { id: tripId },
+      include: {
+        shipments: true,
+      },
     });
 
-    if (!trip || trip.userId !== userId) {
+    if (!trip) {
       throw new ApiError(httpStatus.NOT_FOUND, "Associated trip not found.");
+    }
+
+    const isTripOwner = trip.userId === userId;
+    const isShipmentOwner = trip.shipments.some((s) => s.userId === userId);
+
+    if (!isTripOwner && !isShipmentOwner) {
+      throw new ApiError(
+        httpStatus.FORBIDDEN,
+        "Access denied. You are not a party to this trip.",
+      );
     }
 
     if (trip.status !== "ACTIVE" && trip.status !== "COMPLETED") {
@@ -277,6 +303,10 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
         );
       }
     }
+
+    resolvedTravelerId = trip.userId;
+    const matchedShipment = trip.shipments.find((s) => s.userId === userId);
+    resolvedSenderId = matchedShipment ? userId : (trip.shipments[0]?.userId || null);
   }
 
   if (attachments && attachments.length > 5) {
@@ -296,6 +326,8 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
       description: description.trim(),
       shipmentId: shipmentId || null,
       tripId: tripId || null,
+      senderId: resolvedSenderId,
+      travelerId: resolvedTravelerId,
       attachments: attachments || [],
       status: "OPEN",
       priority: "MEDIUM",
@@ -320,7 +352,13 @@ const getMyTickets = async (
 ) => {
   const skip = (page - 1) * limit;
 
-  const whereClause: any = { userId };
+  const whereClause: any = {
+    OR: [
+      { userId },
+      { senderId: userId },
+      { travelerId: userId },
+    ],
+  };
   if (status) {
     whereClause.status = status.toUpperCase();
   }
@@ -354,6 +392,162 @@ const getMyTickets = async (
       totalPages: Math.ceil(total / limit),
     },
   };
+};
+
+const addComment = async (
+  userId: string,
+  userRole: string,
+  ticketId: string,
+  message: string,
+  attachments?: string[],
+  visibleTo?: string,
+) => {
+  if (!message?.trim()) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Message cannot be empty.");
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    include: { user: true },
+  });
+
+  if (!ticket) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Ticket not found.");
+  }
+
+  if (
+    userRole !== "admin" &&
+    ticket.userId !== userId &&
+    ticket.senderId !== userId &&
+    ticket.travelerId !== userId
+  ) {
+    throw new ApiError(httpStatus.FORBIDDEN, "Access denied to this ticket.");
+  }
+
+  if (ticket.status === "CLOSED" || ticket.status === "RESOLVED") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Resolved or Closed tickets cannot be reopened. You must create a new ticket.",
+    );
+  }
+
+  if (userRole !== "admin" && attachments && attachments.length > 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Users cannot add attachments in comments.",
+    );
+  }
+
+  let resolvedVisibleTo = "ALL";
+  if (userRole === "admin") {
+    if (visibleTo === "SENDER" || visibleTo === "TRAVELER" || visibleTo === "ALL") {
+      resolvedVisibleTo = visibleTo;
+    }
+  } else {
+    const isTraveler = ticket.travelerId === userId && ticket.senderId !== userId;
+    resolvedVisibleTo = isTraveler ? "TRAVELER" : "SENDER";
+  }
+
+  const comment = await prisma.ticketComment.create({
+    data: {
+      ticketId,
+      userId,
+      message: message.trim(),
+      attachments: attachments || [],
+      visibleTo: resolvedVisibleTo,
+    },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, role: true },
+      },
+    },
+  });
+
+  // Track SLA First Response
+  let slaUpdated = false;
+  if (userRole === "admin" && !ticket.slaFirstResponseAt) {
+    await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { slaFirstResponseAt: new Date() },
+    });
+    slaUpdated = true;
+  }
+
+  // Notify appropriate user(s) if Admin commented
+  if (userRole === "admin") {
+    const notifyUserIds: string[] = [];
+    if (resolvedVisibleTo === "SENDER" || resolvedVisibleTo === "ALL") {
+      if (ticket.senderId) {
+        notifyUserIds.push(ticket.senderId);
+      } else {
+        notifyUserIds.push(ticket.userId);
+      }
+    }
+    if (resolvedVisibleTo === "TRAVELER" || resolvedVisibleTo === "ALL") {
+      if (ticket.travelerId) {
+        notifyUserIds.push(ticket.travelerId);
+      } else if (resolvedVisibleTo === "ALL" && !notifyUserIds.includes(ticket.userId)) {
+        notifyUserIds.push(ticket.userId);
+      }
+    }
+
+    const uniqueUserIds = [...new Set(notifyUserIds)];
+
+    for (const targetUserId of uniqueUserIds) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: targetUserId },
+      });
+      if (!targetUser) continue;
+
+      // 1. Create in-app notification
+      await prisma.notification.create({
+        data: {
+          userId: targetUserId,
+          title: `Reply on ticket ${ticket.ticketId}`,
+          message: `Support team has replied to your ticket: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`,
+        },
+      });
+
+      // 2. Send email notification
+      if (targetUser.email) {
+        try {
+          const html = getHtmlEmailTemplate(
+            `New Support Reply — ${ticket.ticketId}`,
+            `<p>Hi ${targetUser.name},</p>
+             <p>Our support team has posted a reply to your ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}").</p>
+             <div style="background-color: #f1f5f9; padding: 16px; border-radius: 8px; border-left: 4px solid #cd071e; margin: 20px 0; font-style: italic; font-size: 15px; color: #1e293b;">
+               "${message.trim()}"
+             </div>
+             <p>Please log in to your dashboard to view the conversation or download any attachments.</p>`,
+            "View Conversation",
+            `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+          );
+
+          await sendEmail({
+            to: targetUser.email,
+            subject: `New Reply on Ticket ${ticket.ticketId} — Shiffto`,
+            html,
+            text: `Hi ${targetUser.name},\n\nOur support team has replied to your ticket ${ticket.ticketId}.\n\nMessage: "${message.trim()}"\n\nPlease log in to your dashboard to view the conversation.\n\nBest regards,\nShiffto Support Team`,
+          });
+        } catch (err) {
+          console.error(
+            `Failed to send email notification on ticket comment to user ${targetUserId}`,
+            err,
+          );
+        }
+      }
+    }
+  }
+
+  // Socket broadcast of new comment
+  try {
+    const io = getIO();
+    io.to(ticketId).emit("new-comment", comment);
+  } catch (error) {
+    console.error("Failed to emit new-comment socket event:", error);
+  }
+
+  return comment;
 };
 
 const getTicketDetails = async (
@@ -403,126 +597,31 @@ const getTicketDetails = async (
     throw new ApiError(httpStatus.NOT_FOUND, "Ticket not found.");
   }
 
-  if (userRole !== "admin" && ticket.userId !== userId) {
+  if (
+    userRole !== "admin" &&
+    ticket.userId !== userId &&
+    ticket.senderId !== userId &&
+    ticket.travelerId !== userId
+  ) {
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied to this ticket.");
+  }
+
+  // Filter comments based on role/privacy
+  if (userRole !== "admin") {
+    const isTraveler = ticket.travelerId === userId && ticket.senderId !== userId;
+    const userRoleTag = isTraveler ? "TRAVELER" : "SENDER";
+
+    ticket.comments = ticket.comments.filter((c) => {
+      if (c.user.role === "admin") {
+        return c.visibleTo === "ALL" || c.visibleTo === userRoleTag;
+      }
+      return c.userId === userId;
+    });
   }
 
   return ticket;
 };
 
-const addComment = async (
-  userId: string,
-  userRole: string,
-  ticketId: string,
-  message: string,
-  attachments?: string[],
-) => {
-  if (!message?.trim()) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Message cannot be empty.");
-  }
-
-  const ticket = await prisma.ticket.findUnique({
-    where: { id: ticketId },
-    include: { user: true },
-  });
-
-  if (!ticket) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Ticket not found.");
-  }
-
-  if (userRole !== "admin" && ticket.userId !== userId) {
-    throw new ApiError(httpStatus.FORBIDDEN, "Access denied to this ticket.");
-  }
-
-  if (ticket.status === "CLOSED" || ticket.status === "RESOLVED") {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Resolved or Closed tickets cannot be reopened. You must create a new ticket.",
-    );
-  }
-
-  if (userRole !== "admin" && attachments && attachments.length > 0) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Users cannot add attachments in comments.",
-    );
-  }
-
-  const comment = await prisma.ticketComment.create({
-    data: {
-      ticketId,
-      userId,
-      message: message.trim(),
-      attachments: attachments || [],
-    },
-    include: {
-      user: {
-        select: { id: true, name: true, email: true, role: true },
-      },
-    },
-  });
-
-  // Track SLA First Response
-  let slaUpdated = false;
-  if (userRole === "admin" && !ticket.slaFirstResponseAt) {
-    await prisma.ticket.update({
-      where: { id: ticketId },
-      data: { slaFirstResponseAt: new Date() },
-    });
-    slaUpdated = true;
-  }
-
-  // Notify User if Admin commented
-  if (userRole === "admin") {
-    // 1. Create in-app notification
-    await prisma.notification.create({
-      data: {
-        userId: ticket.userId,
-        title: `Reply on ticket ${ticket.ticketId}`,
-        message: `Support team has replied to your ticket: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`,
-      },
-    });
-
-    // 2. Send email notification
-    if (ticket.user?.email) {
-      try {
-        const html = getHtmlEmailTemplate(
-          `New Support Reply — ${ticket.ticketId}`,
-          `<p>Hi ${ticket.user.name},</p>
-           <p>Our support team has posted a reply to your ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}").</p>
-           <div style="background-color: #f1f5f9; padding: 16px; border-radius: 8px; border-left: 4px solid #cd071e; margin: 20px 0; font-style: italic; font-size: 15px; color: #1e293b;">
-             "${message.trim()}"
-           </div>
-           <p>Please log in to your dashboard to view the conversation or download any attachments.</p>`,
-          "View Conversation",
-          `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
-        );
-
-        await sendEmail({
-          to: ticket.user.email,
-          subject: `New Reply on Ticket ${ticket.ticketId} — Shiffto`,
-          html,
-          text: `Hi ${ticket.user.name},\n\nOur support team has replied to your ticket ${ticket.ticketId}.\n\nMessage: "${message.trim()}"\n\nPlease log in to your dashboard to view the conversation.\n\nBest regards,\nShiffto Support Team`,
-        });
-      } catch (err) {
-        console.error(
-          "Failed to send email notification on ticket comment",
-          err,
-        );
-      }
-    }
-  }
-
-  // Socket broadcast of new comment
-  try {
-    const io = getIO();
-    io.to(ticketId).emit("new-comment", comment);
-  } catch (error) {
-    console.error("Failed to emit new-comment socket event:", error);
-  }
-
-  return comment;
-};
 
 const closeTicket = async (userId: string, userRole: string, id: string) => {
   const ticket = await prisma.ticket.findUnique({

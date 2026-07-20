@@ -62,13 +62,14 @@ const getTicketDetails = catchAsync(async (req: Request, res: Response) => {
 });
 
 const addComment = catchAsync(async (req: Request, res: Response) => {
-  const { message, attachments } = req.body;
+  const { message, attachments, visibleTo } = req.body;
   const result = await TicketService.addComment(
     req.user!.id,
     req.user!.role || "user",
     req.params.id as string,
     message,
     attachments,
+    visibleTo,
   );
 
   sendResponse(res, {
