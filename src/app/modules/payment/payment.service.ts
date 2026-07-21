@@ -220,7 +220,14 @@ const handlePaymentFailureOrExpiration = async (transactionId: string) => {
   return prisma.$transaction(async (tx) => {
     const paymentTx = await tx.paymentTransaction.findUnique({
       where: { transactionId },
-      include: { offer: true },
+      include: {
+        offer: {
+          include: {
+            shipment: true,
+            trip: true,
+          },
+        },
+      },
     });
 
     if (!paymentTx) return null;
@@ -235,6 +242,21 @@ const handlePaymentFailureOrExpiration = async (transactionId: string) => {
         paymentTx.offer &&
         paymentTx.offer.status === OfferStatus.PAYMENT_PENDING
       ) {
+        // Restore trip capacity
+        const offer = paymentTx.offer;
+        const weight = offer.shipment.weight;
+        if (offer.bagType === "cabin") {
+          await tx.trip.update({
+            where: { id: offer.tripId },
+            data: { remainingCabinCapacity: { increment: weight } },
+          });
+        } else {
+          await tx.trip.update({
+            where: { id: offer.tripId },
+            data: { remainingCheckInCapacity: { increment: weight } },
+          });
+        }
+
         await tx.offer.update({
           where: { id: paymentTx.offerId },
           data: { status: OfferStatus.PENDING },
