@@ -247,10 +247,13 @@ const acceptOffer = async (offerId: string, user: User) => {
     throw new ApiError(httpStatus.NOT_FOUND, "Offer not found");
   }
 
-  if (offer.status !== OfferStatus.PENDING) {
+  if (
+    offer.status !== OfferStatus.PENDING &&
+    offer.status !== OfferStatus.PAYMENT_PENDING
+  ) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      `Only pending offers can be accepted. Current status: ${offer.status}`,
+      `Only pending or payment pending offers can be accepted. Current status: ${offer.status}`,
     );
   }
 
@@ -271,6 +274,7 @@ const acceptOffer = async (offerId: string, user: User) => {
     const existingActiveOffer = await tx.offer.findFirst({
       where: {
         shipmentId: shipment.id,
+        id: { not: offer.id },
         status: { in: [OfferStatus.PAYMENT_PENDING, OfferStatus.ACCEPTED] },
       },
     });
@@ -282,47 +286,49 @@ const acceptOffer = async (offerId: string, user: User) => {
       );
     }
 
-    // 1. Double check capacity inside transaction
-    const latestTrip = await tx.trip.findUnique({
-      where: { id: trip.id },
-    });
+    // 1. Double check capacity inside transaction (only if we are transitioning from PENDING to PAYMENT_PENDING)
+    if (offer.status === OfferStatus.PENDING) {
+      const latestTrip = await tx.trip.findUnique({
+        where: { id: trip.id },
+      });
 
-    if (!latestTrip) {
-      throw new ApiError(httpStatus.NOT_FOUND, "Trip not found");
-    }
-
-    if (latestTrip.status !== "ACTIVE") {
-      throw new ApiError(httpStatus.BAD_REQUEST, "Trip is no longer active");
-    }
-
-    if (offer.bagType === "cabin") {
-      if (latestTrip.remainingCabinCapacity < weight) {
-        throw new ApiError(
-          httpStatus.BAD_REQUEST,
-          `Insufficient cabin bag capacity on trip. Needed: ${weight}kg, Available: ${latestTrip.remainingCabinCapacity}kg`,
-        );
+      if (!latestTrip) {
+        throw new ApiError(httpStatus.NOT_FOUND, "Trip not found");
       }
 
-      await tx.trip.update({
-        where: { id: trip.id },
-        data: {
-          remainingCabinCapacity: { decrement: weight },
-        },
-      });
-    } else {
-      if (latestTrip.remainingCheckInCapacity < weight) {
-        throw new ApiError(
-          httpStatus.BAD_REQUEST,
-          `Insufficient check-in bag capacity on trip. Needed: ${weight}kg, Available: ${latestTrip.remainingCheckInCapacity}kg`,
-        );
+      if (latestTrip.status !== "ACTIVE") {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Trip is no longer active");
       }
 
-      await tx.trip.update({
-        where: { id: trip.id },
-        data: {
-          remainingCheckInCapacity: { decrement: weight },
-        },
-      });
+      if (offer.bagType === "cabin") {
+        if (latestTrip.remainingCabinCapacity < weight) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            `Insufficient cabin bag capacity on trip. Needed: ${weight}kg, Available: ${latestTrip.remainingCabinCapacity}kg`,
+          );
+        }
+
+        await tx.trip.update({
+          where: { id: trip.id },
+          data: {
+            remainingCabinCapacity: { decrement: weight },
+          },
+        });
+      } else {
+        if (latestTrip.remainingCheckInCapacity < weight) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            `Insufficient check-in bag capacity on trip. Needed: ${weight}kg, Available: ${latestTrip.remainingCheckInCapacity}kg`,
+          );
+        }
+
+        await tx.trip.update({
+          where: { id: trip.id },
+          data: {
+            remainingCheckInCapacity: { decrement: weight },
+          },
+        });
+      }
     }
 
     // 2. Set offer status to PAYMENT_PENDING (enforced by DB partial unique index)
@@ -330,6 +336,27 @@ const acceptOffer = async (offerId: string, user: User) => {
       where: { id: offerId },
       data: { status: OfferStatus.PAYMENT_PENDING },
     });
+
+    // Clean up existing payment transactions if they are pending or failed to avoid unique constraint crash
+    const existingTx = await tx.paymentTransaction.findUnique({
+      where: { shipmentId: shipment.id },
+    });
+
+    if (existingTx) {
+      if (
+        existingTx.status === "PENDING_PAYMENT" ||
+        existingTx.status === "FAILED"
+      ) {
+        await tx.paymentTransaction.delete({
+          where: { id: existingTx.id },
+        });
+      } else {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          `An active or completed payment transaction already exists for this shipment (status: ${existingTx.status}).`,
+        );
+      }
+    }
 
     // 3. Create PaymentTransaction with status PENDING_PAYMENT
     const transactionId = `SHP-${Math.floor(100000 + Math.random() * 900000)}`;

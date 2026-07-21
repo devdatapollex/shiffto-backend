@@ -30,6 +30,8 @@ const mockNotification = {
 };
 
 const mockPaymentTransaction = {
+  findUnique: vi.fn(),
+  delete: vi.fn(),
   create: vi.fn().mockResolvedValue({ transactionId: "SHP-123456" }),
   update: vi.fn(),
   updateMany: vi.fn(),
