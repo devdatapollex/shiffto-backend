@@ -92,9 +92,7 @@ model ShipmentStep {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Note: a partial unique index on (shipmentId) WHERE isCurrent = true
-  // is enforced at the DB level via raw SQL in the migration (see PARTIAL-INDEX-PLAN).
-  // Prisma's schema language does not support partial indexes — preserve it manually.
+  @@unique([shipmentId], where: { isCurrent: true }, map: "shipment_steps_one_current_per_shipment")
   @@unique([shipmentId, order])
   @@index([shipmentId, order])
   @@index([shipmentId, isCurrent])
@@ -126,6 +124,7 @@ model Offer {
   updatedAt           DateTime             @updatedAt
 
   @@unique([shipmentId, travellerId]) // One active offer per traveller per shipment
+  @@unique([shipmentId], where: raw("status IN ('PAYMENT_PENDING', 'ACCEPTED')"), map: "unique_active_or_pending_offer_per_shipment")
   @@index([shipmentId])
   @@index([travellerId])
   @@map("offers")
