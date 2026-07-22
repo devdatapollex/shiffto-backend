@@ -8,6 +8,8 @@ const router = express.Router();
 
 router.get("/", authGuard(), ProfileController.getProfile);
 router.get("/analytics", authGuard(), ProfileController.getAnalytics);
+router.get("/revenue-chart", authGuard(), ProfileController.getRevenueChart);
+router.get("/shipment-chart", authGuard(), ProfileController.getShipmentChart);
 
 router.patch(
   "/",

@@ -81,6 +81,34 @@ const getAnalytics = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getRevenueChart = catchAsync(async (req: Request, res: Response) => {
+  const result = await ProfileService.getRevenueChart(
+    req.user!.id,
+    req.query as any,
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Revenue chart data fetched successfully",
+    data: result,
+  });
+});
+
+const getShipmentChart = catchAsync(async (req: Request, res: Response) => {
+  const result = await ProfileService.getShipmentChart(
+    req.user!.id,
+    req.query.year as string,
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Shipment chart data fetched successfully",
+    data: result,
+  });
+});
+
 export const ProfileController = {
   getProfile,
   updateProfile,
@@ -89,4 +117,6 @@ export const ProfileController = {
   deactivateAccount,
   deleteAccount,
   getAnalytics,
+  getRevenueChart,
+  getShipmentChart,
 };

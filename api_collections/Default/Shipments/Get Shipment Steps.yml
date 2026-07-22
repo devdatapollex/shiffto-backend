@@ -1,7 +1,7 @@
 info:
   name: Get Shipment Steps
   type: http
-  seq: 10
+  seq: 12
 
 http:
   method: GET
