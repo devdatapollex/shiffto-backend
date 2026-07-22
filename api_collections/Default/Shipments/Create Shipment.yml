@@ -1,7 +1,7 @@
 info:
   name: Create Shipment
   type: http
-  seq: 1
+  seq: 2
 
 http:
   method: POST
@@ -17,16 +17,16 @@ http:
         "weight": 5,
         "quantity": 2,
         "description": "A laptop for international shipping",
-        "itemPhotos": ["dummy url"],
+        "itemPhotos": ["https://placehold.co/600x400?text=Item+Photo+Placeholder"],
         "instructions": "Handle with care",
-        "fromCountry": "US",
+        "fromCountry": "AR",
         "toCountry": "BD",
         "pricePerKg": 100,
         "receiverName": "John Doe",
         "receiverPhone": "+1234567890",
         "receiverAddress": "123 Main St, City",
-        "categoryId": "019f416d-e483-77b9-b2f9-7d92c91dc048",
-        "otp": "123456"
+        "categoryId": "019f5fd8-977a-73c8-b7f6-b050107ab379",
+        "otp": "723294"
       }
   auth: inherit
 
