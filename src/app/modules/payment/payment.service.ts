@@ -259,7 +259,7 @@ const handlePaymentFailureOrExpiration = async (transactionId: string) => {
 
         await tx.offer.update({
           where: { id: paymentTx.offerId },
-          data: { status: OfferStatus.PENDING },
+          data: { status: OfferStatus.PAYMENT_CANCELED },
         });
       }
     }
