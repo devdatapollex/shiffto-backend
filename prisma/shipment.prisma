@@ -104,6 +104,7 @@ enum OfferStatus {
   PAYMENT_PENDING
   ACCEPTED
   REJECTED
+  PAYMENT_CANCELED
 }
 
 model Offer {
