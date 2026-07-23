@@ -282,8 +282,19 @@ const getAnalytics = async (userId: string) => {
       fromCountry: true,
       toCountry: true,
       weight: true,
+      quantity: true,
       pricePerKg: true,
+      itemPhotos: true,
       createdAt: true,
+      trip: {
+        select: {
+          flightDate: true,
+          flightTime: true,
+          airportArrivalTime: true,
+          fromCountry: true,
+          toCountry: true,
+        },
+      },
     },
   });
 
@@ -298,7 +309,16 @@ const getAnalytics = async (userId: string) => {
       fromCountry: true,
       toCountry: true,
       flightDate: true,
+      flightTime: true,
+      airportArrivalTime: true,
+      cabinBagCapacity: true,
+      checkInBagCapacity: true,
+      remainingCabinCapacity: true,
+      remainingCheckInCapacity: true,
       createdAt: true,
+      _count: {
+        select: { shipments: true },
+      },
     },
   });
 
@@ -342,7 +362,21 @@ const getAnalytics = async (userId: string) => {
       ...s,
       totalCost: s.weight * s.pricePerKg,
     })),
-    recentTrips,
+    recentTrips: recentTrips.map((t) => ({
+      id: t.id,
+      flightNumber: t.flightNumber,
+      status: t.status,
+      fromCountry: t.fromCountry,
+      toCountry: t.toCountry,
+      flightDate: t.flightDate,
+      flightTime: t.flightTime,
+      airportArrivalTime: t.airportArrivalTime,
+      totalCapacity: (t.cabinBagCapacity || 0) + (t.checkInBagCapacity || 0),
+      remainingCapacity:
+        (t.remainingCabinCapacity || 0) + (t.remainingCheckInCapacity || 0),
+      shipmentsCount: t._count?.shipments || 0,
+      createdAt: t.createdAt,
+    })),
   };
 };
 
