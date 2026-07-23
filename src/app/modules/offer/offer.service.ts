@@ -111,12 +111,19 @@ const createOffer = async (
     );
   }
 
-  // Check no existing PENDING or ACCEPTED offer from this traveller for this shipment
+  // Check no existing PENDING, PAYMENT_PENDING, PAYMENT_CANCELED, or ACCEPTED offer from this traveller for this shipment
   const existingOffer = await prisma.offer.findFirst({
     where: {
       shipmentId,
       travellerId: user.id,
-      status: { in: [OfferStatus.PENDING, OfferStatus.ACCEPTED] },
+      status: {
+        in: [
+          OfferStatus.PENDING,
+          OfferStatus.PAYMENT_PENDING,
+          OfferStatus.PAYMENT_CANCELED,
+          OfferStatus.ACCEPTED,
+        ],
+      },
     },
   });
 
@@ -193,7 +200,13 @@ const getReceivedOffers = async (user: User) => {
       shipment: {
         userId: user.id,
       },
-      status: OfferStatus.PENDING,
+      status: {
+        in: [
+          OfferStatus.PENDING,
+          OfferStatus.PAYMENT_PENDING,
+          OfferStatus.PAYMENT_CANCELED,
+        ],
+      },
     },
     include: {
       traveller: {
@@ -249,11 +262,12 @@ const acceptOffer = async (offerId: string, user: User) => {
 
   if (
     offer.status !== OfferStatus.PENDING &&
-    offer.status !== OfferStatus.PAYMENT_PENDING
+    offer.status !== OfferStatus.PAYMENT_PENDING &&
+    offer.status !== OfferStatus.PAYMENT_CANCELED
   ) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      `Only pending or payment pending offers can be accepted. Current status: ${offer.status}`,
+      `Only pending, payment pending, or payment canceled offers can be accepted. Current status: ${offer.status}`,
     );
   }
 
@@ -286,8 +300,11 @@ const acceptOffer = async (offerId: string, user: User) => {
       );
     }
 
-    // 1. Double check capacity inside transaction (only if we are transitioning from PENDING to PAYMENT_PENDING)
-    if (offer.status === OfferStatus.PENDING) {
+    // 1. Double check capacity inside transaction (if we are transitioning from PENDING or PAYMENT_CANCELED to PAYMENT_PENDING)
+    if (
+      offer.status === OfferStatus.PENDING ||
+      offer.status === OfferStatus.PAYMENT_CANCELED
+    ) {
       const latestTrip = await tx.trip.findUnique({
         where: { id: trip.id },
       });
@@ -440,10 +457,10 @@ const cancelCheckout = async (offerId: string, user: User) => {
       });
     }
 
-    // 2. Revert offer status to PENDING
+    // 2. Set offer status to PAYMENT_CANCELED
     const revertedOffer = await tx.offer.update({
       where: { id: offerId },
-      data: { status: OfferStatus.PENDING },
+      data: { status: OfferStatus.PAYMENT_CANCELED },
     });
 
     // 3. Mark payment transaction as FAILED
@@ -466,10 +483,13 @@ const rejectOffer = async (offerId: string, user: User) => {
     throw new ApiError(httpStatus.NOT_FOUND, "Offer not found");
   }
 
-  if (offer.status !== OfferStatus.PENDING) {
+  if (
+    offer.status !== OfferStatus.PENDING &&
+    offer.status !== OfferStatus.PAYMENT_CANCELED
+  ) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Only pending offers can be rejected",
+      "Only pending or payment canceled offers can be rejected",
     );
   }
 
