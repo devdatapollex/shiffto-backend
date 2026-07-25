@@ -8,11 +8,33 @@ import { OfferValidation } from "./offer.validation";
 import { ShipmentStepService } from "../shipment/shipment-step.service";
 import { getPaymentAdapter } from "../payment/payment.adapter";
 
+const OFFER_EXPIRATION_MINUTES = 30;
+
+const expireStaleOffers = async (shipmentId?: string) => {
+  const expiryCutoff = new Date(
+    Date.now() - OFFER_EXPIRATION_MINUTES * 60 * 1000,
+  );
+
+  await prisma.offer.updateMany({
+    where: {
+      status: OfferStatus.PENDING,
+      createdAt: { lt: expiryCutoff },
+      ...(shipmentId ? { shipmentId } : {}),
+    },
+    data: {
+      status: OfferStatus.EXPIRED,
+    },
+  });
+};
+
 const createOffer = async (
   payload: z.infer<typeof OfferValidation.createOfferSchema>,
   user: User,
 ) => {
   const { shipmentId, tripId, offeredPrice, bagType } = payload;
+
+  // Auto-expire any stale PENDING offer for this shipment
+  await expireStaleOffers(shipmentId);
 
   // Validate shipment exists, is AWAITING_MATCH, tripId is null
   const shipment = await prisma.shipment.findUnique({
@@ -136,9 +158,15 @@ const createOffer = async (
 
   const isCounterOffer = offeredPrice !== shipment.pricePerKg;
 
-  // Create or upsert Offer
-  const offer = await prisma.offer.create({
-    data: {
+  // Upsert Offer so previous REJECTED or EXPIRED offers are updated without unique key collision
+  const offer = await prisma.offer.upsert({
+    where: {
+      shipmentId_travellerId: {
+        shipmentId,
+        travellerId: user.id,
+      },
+    },
+    create: {
       shipmentId,
       travellerId: user.id,
       tripId,
@@ -147,6 +175,15 @@ const createOffer = async (
       bagType,
       isCounterOffer,
       status: OfferStatus.PENDING,
+    },
+    update: {
+      tripId,
+      senderPrice: shipment.pricePerKg,
+      offeredPrice,
+      bagType,
+      isCounterOffer,
+      status: OfferStatus.PENDING,
+      createdAt: new Date(),
     },
     include: {
       shipment: {
@@ -175,6 +212,8 @@ const getOffersForShipment = async (shipmentId: string, user: User) => {
     );
   }
 
+  await expireStaleOffers(shipmentId);
+
   const offers = await prisma.offer.findMany({
     where: { shipmentId },
     include: {
@@ -195,6 +234,8 @@ const getOffersForShipment = async (shipmentId: string, user: User) => {
 };
 
 const getReceivedOffers = async (user: User) => {
+  await expireStaleOffers();
+
   const offers = await prisma.offer.findMany({
     where: {
       shipment: {
@@ -227,6 +268,8 @@ const getReceivedOffers = async (user: User) => {
 };
 
 const getSentOffers = async (user: User) => {
+  await expireStaleOffers();
+
   const offers = await prisma.offer.findMany({
     where: {
       travellerId: user.id,
@@ -269,6 +312,24 @@ const acceptOffer = async (offerId: string, user: User) => {
       httpStatus.BAD_REQUEST,
       `Only pending, payment pending, or payment canceled offers can be accepted. Current status: ${offer.status}`,
     );
+  }
+
+  if (offer.status === OfferStatus.PENDING) {
+    const isExpired =
+      Date.now() - new Date(offer.createdAt).getTime() >
+      OFFER_EXPIRATION_MINUTES * 60 * 1000;
+
+    if (isExpired) {
+      await prisma.offer.update({
+        where: { id: offerId },
+        data: { status: OfferStatus.EXPIRED },
+      });
+
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Offer has expired and can no longer be accepted",
+      );
+    }
   }
 
   if (offer.shipment.userId !== user.id && user.role !== "admin") {
@@ -491,6 +552,21 @@ const rejectOffer = async (offerId: string, user: User) => {
       httpStatus.BAD_REQUEST,
       "Only pending or payment canceled offers can be rejected",
     );
+  }
+
+  if (offer.status === OfferStatus.PENDING) {
+    const isExpired =
+      Date.now() - new Date(offer.createdAt).getTime() >
+      OFFER_EXPIRATION_MINUTES * 60 * 1000;
+
+    if (isExpired) {
+      await prisma.offer.update({
+        where: { id: offerId },
+        data: { status: OfferStatus.EXPIRED },
+      });
+
+      throw new ApiError(httpStatus.BAD_REQUEST, "Offer has expired");
+    }
   }
 
   if (offer.shipment.userId !== user.id && user.role !== "admin") {
