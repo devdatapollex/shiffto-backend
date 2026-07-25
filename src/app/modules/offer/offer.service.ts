@@ -17,7 +17,7 @@ const expireStaleOffers = async (shipmentId?: string) => {
 
   await prisma.offer.updateMany({
     where: {
-      status: OfferStatus.PENDING,
+      status: { in: [OfferStatus.PENDING, OfferStatus.PAYMENT_CANCELED] },
       createdAt: { lt: expiryCutoff },
       ...(shipmentId ? { shipmentId } : {}),
     },
@@ -314,7 +314,10 @@ const acceptOffer = async (offerId: string, user: User) => {
     );
   }
 
-  if (offer.status === OfferStatus.PENDING) {
+  if (
+    offer.status === OfferStatus.PENDING ||
+    offer.status === OfferStatus.PAYMENT_CANCELED
+  ) {
     const isExpired =
       Date.now() - new Date(offer.createdAt).getTime() >
       OFFER_EXPIRATION_MINUTES * 60 * 1000;
@@ -554,7 +557,10 @@ const rejectOffer = async (offerId: string, user: User) => {
     );
   }
 
-  if (offer.status === OfferStatus.PENDING) {
+  if (
+    offer.status === OfferStatus.PENDING ||
+    offer.status === OfferStatus.PAYMENT_CANCELED
+  ) {
     const isExpired =
       Date.now() - new Date(offer.createdAt).getTime() >
       OFFER_EXPIRATION_MINUTES * 60 * 1000;
