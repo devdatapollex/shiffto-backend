@@ -2,6 +2,7 @@ import prisma from "../../lib/prisma";
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { User } from "../../lib/auth";
+import { Prisma } from "../../../generated/prisma/client";
 import {
   PaymentStatus,
   OfferStatus,
@@ -317,10 +318,169 @@ const releasePayment = async (transactionId: string, adminUser: User) => {
   });
 };
 
+interface GetAdminPaymentsQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const whereConditions: Prisma.PaymentTransactionWhereInput = {};
+
+  if (query.search) {
+    const s = query.search.trim();
+    whereConditions.OR = [
+      { transactionId: { contains: s, mode: "insensitive" } },
+      { gatewayTxnId: { contains: s, mode: "insensitive" } },
+      { shipment: { itemName: { contains: s, mode: "insensitive" } } },
+      { sender: { name: { contains: s, mode: "insensitive" } } },
+      { sender: { email: { contains: s, mode: "insensitive" } } },
+      { traveller: { name: { contains: s, mode: "insensitive" } } },
+      { traveller: { email: { contains: s, mode: "insensitive" } } },
+    ];
+  }
+
+  if (query.status && query.status !== "ALL") {
+    whereConditions.status = query.status.toUpperCase() as PaymentStatus;
+  }
+
+  const orderByField = query.sortBy || "createdAt";
+  const orderByDir = query.sortOrder || "desc";
+
+  const transactions = await prisma.paymentTransaction.findMany({
+    where: whereConditions,
+    skip,
+    take: limit,
+    orderBy: { [orderByField]: orderByDir },
+    include: {
+      shipment: {
+        select: {
+          id: true,
+          itemName: true,
+          status: true,
+          weight: true,
+          tripId: true,
+        },
+      },
+      offer: {
+        select: {
+          id: true,
+          tripId: true,
+          offeredPrice: true,
+          trip: {
+            select: {
+              id: true,
+              fromCountry: true,
+              toCountry: true,
+            },
+          },
+        },
+      },
+      sender: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          image: true,
+        },
+      },
+      traveller: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          image: true,
+        },
+      },
+    },
+  });
+
+  const total = await prisma.paymentTransaction.count({
+    where: whereConditions,
+  });
+
+  // Compute overall KPI statistics
+  const allTxns = await prisma.paymentTransaction.findMany({
+    select: {
+      grossAmount: true,
+      status: true,
+    },
+  });
+
+  let totalGrossVolume = 0;
+  let totalEscrowed = 0;
+  let totalReleased = 0;
+  let totalRefunded = 0;
+
+  allTxns.forEach((tx) => {
+    if (
+      tx.status === PaymentStatus.ESCROWED ||
+      tx.status === PaymentStatus.PENDING_RELEASE ||
+      tx.status === PaymentStatus.RELEASED
+    ) {
+      totalGrossVolume += tx.grossAmount;
+    }
+
+    if (
+      tx.status === PaymentStatus.ESCROWED ||
+      tx.status === PaymentStatus.PENDING_RELEASE
+    ) {
+      totalEscrowed += tx.grossAmount;
+    } else if (tx.status === PaymentStatus.RELEASED) {
+      totalReleased += tx.grossAmount;
+    } else if (
+      tx.status === PaymentStatus.REFUNDED ||
+      tx.status === PaymentStatus.FAILED
+    ) {
+      totalRefunded += tx.grossAmount;
+    }
+  });
+
+  const commissionRate = 0.3; // Standard 30% commission
+  const estimatedCommission = totalReleased * commissionRate;
+
+  const data = transactions.map((tx) => {
+    const commissionAmount = tx.grossAmount * commissionRate;
+    const netAmount = tx.grossAmount - commissionAmount;
+    return {
+      ...tx,
+      commissionAmount,
+      netAmount,
+    };
+  });
+
+  return {
+    stats: {
+      totalGrossVolume,
+      totalEscrowed,
+      totalReleased,
+      totalRefunded,
+      estimatedCommission,
+      commissionRate,
+    },
+    meta: {
+      page,
+      limit,
+      total,
+    },
+    data,
+  };
+};
+
 export const PaymentService = {
   getSenderPaymentsSummary,
   getTravelerEarningsSummary,
   handlePaymentSuccess,
   handlePaymentFailureOrExpiration,
   releasePayment,
+  getAdminPayments,
 };
