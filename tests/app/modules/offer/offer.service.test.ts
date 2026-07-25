@@ -11,6 +11,7 @@ const mockOffer = {
   findFirst: vi.fn(),
   findMany: vi.fn(),
   create: vi.fn(),
+  upsert: vi.fn(),
   update: vi.fn(),
   updateMany: vi.fn(),
 };
@@ -123,7 +124,7 @@ describe("OfferService", () => {
       mockShipment.findUnique.mockResolvedValue(mockShipmentData);
       mockTrip.findUnique.mockResolvedValue(mockTripData);
       mockOffer.findFirst.mockResolvedValue(null);
-      mockOffer.create.mockResolvedValue({ id: "offer-1" });
+      mockOffer.upsert.mockResolvedValue({ id: "offer-1" });
 
       const payload = {
         shipmentId: "shipment-1",
@@ -135,24 +136,26 @@ describe("OfferService", () => {
       const { OfferService } = await importService();
       const result = await OfferService.createOffer(payload, mockUser as any);
       expect(result).toBeDefined();
-      expect(mockOffer.create).toHaveBeenCalledWith({
-        data: {
-          shipmentId: "shipment-1",
-          travellerId: "user-1",
-          tripId: "trip-1",
-          senderPrice: 50,
-          offeredPrice: 45,
-          bagType: "checkIn",
-          isCounterOffer: true,
-          status: OfferStatus.PENDING,
-        },
-        include: {
-          shipment: {
-            include: { category: true },
+      expect(mockOffer.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            shipmentId_travellerId: {
+              shipmentId: "shipment-1",
+              travellerId: "user-1",
+            },
           },
-          trip: true,
-        },
-      });
+          create: {
+            shipmentId: "shipment-1",
+            travellerId: "user-1",
+            tripId: "trip-1",
+            senderPrice: 50,
+            offeredPrice: 45,
+            bagType: "checkIn",
+            isCounterOffer: true,
+            status: OfferStatus.PENDING,
+          },
+        }),
+      );
     });
 
     it("should throw error if shipment not found", async () => {
