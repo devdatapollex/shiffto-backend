@@ -48,6 +48,9 @@ model PaymentTransaction {
   senderId       String
   travellerId    String
   grossAmount    Float
+  commissionRate Float         @default(0.3)
+  commissionAmount Float       @default(0.0)
+  netAmount      Float         @default(0.0)
   currency       String        @default("USD")
   paymentGateway String        @default("STRIPE")
   gatewayTxnId   String?
@@ -74,10 +77,7 @@ model WithdrawalRequest {
   id                   String           @id @default(uuid(7))
   withdrawalNo         String           @unique
   userId               String
-  grossAmount          Float
-  commissionRate       Float
-  commissionAmount     Float
-  netAmount            Float
+  amount               Float            @default(0.0)
   paymentMethodId      String?
   paymentMethodDetails Json?
   payoutTxnId          String?

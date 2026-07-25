@@ -56,14 +56,6 @@ const getSenderPaymentsSummary = async (userId: string) => {
 };
 
 const getTravelerEarningsSummary = async (userId: string) => {
-  // Fetch system commission rate setting (default 30% = 0.30)
-  const commissionSetting = await prisma.systemSetting.findUnique({
-    where: { key: "WITHDRAWAL_COMMISSION_RATE" },
-  });
-  const commissionRate = commissionSetting
-    ? parseFloat(commissionSetting.value)
-    : 0.3;
-
   // Fetch all payment transactions earned by traveler
   const transactions = await prisma.paymentTransaction.findMany({
     where: { travellerId: userId },
@@ -79,18 +71,18 @@ const getTravelerEarningsSummary = async (userId: string) => {
     orderBy: { createdAt: "desc" },
   });
 
-  // Calculate earnings
+  // Calculate net earnings
   let totalEarnings = 0;
+  let escrowedEarnings = 0;
   let pendingReleaseEarnings = 0;
 
   transactions.forEach((tx) => {
     if (tx.status === PaymentStatus.RELEASED) {
-      totalEarnings += tx.grossAmount;
-    } else if (
-      tx.status === PaymentStatus.ESCROWED ||
-      tx.status === PaymentStatus.PENDING_RELEASE
-    ) {
-      pendingReleaseEarnings += tx.grossAmount;
+      totalEarnings += tx.netAmount;
+    } else if (tx.status === PaymentStatus.ESCROWED) {
+      escrowedEarnings += tx.netAmount;
+    } else if (tx.status === PaymentStatus.PENDING_RELEASE) {
+      pendingReleaseEarnings += tx.netAmount;
     }
   });
 
@@ -101,41 +93,29 @@ const getTravelerEarningsSummary = async (userId: string) => {
   });
 
   let awaitingPayout = 0;
-  let totalWithdrawnGross = 0;
+  let totalWithdrawn = 0;
 
   withdrawalRequests.forEach((req) => {
     if (req.status === WithdrawalStatus.PENDING) {
-      awaitingPayout += req.netAmount;
-      totalWithdrawnGross += req.grossAmount;
+      awaitingPayout += req.amount;
+      totalWithdrawn += req.amount;
     } else if (req.status === WithdrawalStatus.APPROVED) {
-      totalWithdrawnGross += req.grossAmount;
+      totalWithdrawn += req.amount;
     }
   });
 
-  const availableForWithdrawal = Math.max(
-    0,
-    totalEarnings - totalWithdrawnGross,
-  );
+  const availableForWithdrawal = Math.max(0, totalEarnings - totalWithdrawn);
 
   return {
     stats: {
       totalEarnings,
+      escrowedEarnings,
       pendingReleaseEarnings,
       awaitingPayout,
       disputeAmount: 0,
       availableForWithdrawal,
-      commissionRate,
-      commissionPercentage: Math.round(commissionRate * 100),
     },
-    earningsHistory: transactions.map((tx) => {
-      const commAmount = tx.grossAmount * commissionRate;
-      const netAmount = tx.grossAmount - commAmount;
-      return {
-        ...tx,
-        commissionAmount: commAmount,
-        netAmount,
-      };
-    }),
+    earningsHistory: transactions,
     withdrawalHistory: withdrawalRequests,
   };
 };

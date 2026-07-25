@@ -96,7 +96,6 @@ const getAdminAnalytics = async () => {
     openTicketsCount,
     pendingWithdrawalsCount,
     paymentAgg,
-    withdrawalAgg,
     recentKyc,
     recentTickets,
     recentPayments,
@@ -120,10 +119,7 @@ const getAdminAnalytics = async () => {
     prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
     prisma.paymentTransaction.aggregate({
       where: { status: { in: ["PENDING_RELEASE", "RELEASED"] } },
-      _sum: { grossAmount: true },
-    }),
-    prisma.withdrawalRequest.aggregate({
-      _sum: { commissionAmount: true },
+      _sum: { grossAmount: true, commissionAmount: true },
     }),
     prisma.kyc.findMany({
       where: { status: "PENDING" },
@@ -162,7 +158,7 @@ const getAdminAnalytics = async () => {
   ]);
 
   const totalVolume = paymentAgg._sum.grossAmount || 0;
-  const totalCommission = withdrawalAgg._sum.commissionAmount || 0;
+  const totalCommission = paymentAgg._sum.commissionAmount || 0;
 
   const chartData = [];
   const now = new Date();

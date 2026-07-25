@@ -439,9 +439,30 @@ const acceptOffer = async (offerId: string, user: User) => {
       }
     }
 
-    // 3. Create PaymentTransaction with status PENDING_PAYMENT
+    // 3. Fetch system commission rate setting (strictly require configuration)
+    const commissionSetting = await tx.systemSetting.findUnique({
+      where: { key: "WITHDRAWAL_COMMISSION_RATE" },
+    });
+
+    if (!commissionSetting) {
+      throw new ApiError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        "Platform commission rate setting is not configured",
+      );
+    }
+
+    const commissionRate = parseFloat(commissionSetting.value);
+    if (isNaN(commissionRate)) {
+      throw new ApiError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        "Invalid platform commission rate configuration",
+      );
+    }
+
     const transactionId = `SHP-${Math.floor(100000 + Math.random() * 900000)}`;
     const grossAmount = shipment.weight * offer.offeredPrice;
+    const commissionAmount = grossAmount * commissionRate;
+    const netAmount = grossAmount - commissionAmount;
 
     const paymentTx = await tx.paymentTransaction.create({
       data: {
@@ -451,6 +472,9 @@ const acceptOffer = async (offerId: string, user: User) => {
         senderId: shipment.userId,
         travellerId: offer.travellerId,
         grossAmount,
+        commissionRate,
+        commissionAmount,
+        netAmount,
         currency: "USD",
         paymentGateway: "STRIPE",
         status: "PENDING_PAYMENT",
