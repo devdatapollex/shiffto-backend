@@ -91,6 +91,7 @@ const getAdminAnalytics = async () => {
     activeTrips,
     completedTrips,
     pendingKycCount,
+    pendingReleasesCount,
     pendingTripsCount,
     openTicketsCount,
     pendingWithdrawalsCount,
@@ -111,10 +112,14 @@ const getAdminAnalytics = async () => {
     }),
     prisma.trip.count({ where: { status: "COMPLETED" } }),
     prisma.kyc.count({ where: { status: "PENDING" } }),
+    prisma.paymentTransaction.count({
+      where: { status: { in: ["ESCROWED", "PENDING_RELEASE"] } },
+    }),
     prisma.trip.count({ where: { status: "PENDING" } }),
     prisma.ticket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
     prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
     prisma.paymentTransaction.aggregate({
+      where: { status: { in: ["PENDING_RELEASE", "RELEASED"] } },
       _sum: { grossAmount: true },
     }),
     prisma.withdrawalRequest.aggregate({
@@ -184,7 +189,10 @@ const getAdminAnalytics = async () => {
         where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
       }),
       prisma.paymentTransaction.aggregate({
-        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
+        where: {
+          createdAt: { gte: startOfMonth, lte: endOfMonth },
+          status: { in: ["PENDING_RELEASE", "RELEASED"] },
+        },
         _sum: { grossAmount: true },
       }),
     ]);
@@ -208,6 +216,7 @@ const getAdminAnalytics = async () => {
       activeTrips,
       completedTrips,
       pendingKycCount,
+      pendingReleasesCount,
       pendingTripsCount,
       openTicketsCount,
       pendingWithdrawalsCount,
