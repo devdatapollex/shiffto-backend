@@ -76,9 +76,20 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
   res.status(httpStatus.OK).json({ received: true });
 });
 
+const getAdminPayments = catchAsync(async (req: Request, res: Response) => {
+  const result = await PaymentService.getAdminPayments(req.query);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Admin payment transactions fetched successfully",
+    data: result,
+  });
+});
+
 export const PaymentController = {
   getSenderSummary,
   getTravelerSummary,
   releasePayment,
   handleStripeWebhook,
+  getAdminPayments,
 };
