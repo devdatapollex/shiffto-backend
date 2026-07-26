@@ -640,6 +640,39 @@ const getAvailableShipments = async (
   };
 };
 
+const getAvailableShipmentsCount = async (user: User) => {
+  const activeTrips = await prisma.trip.findMany({
+    where: {
+      userId: user.id,
+      status: "ACTIVE",
+    },
+    select: {
+      fromCountry: true,
+      toCountry: true,
+    },
+  });
+
+  if (activeTrips.length === 0) {
+    return { count: 0 };
+  }
+
+  const routeFilters = activeTrips.map((trip) => ({
+    fromCountry: { equals: trip.fromCountry, mode: "insensitive" as const },
+    toCountry: { equals: trip.toCountry, mode: "insensitive" as const },
+  }));
+
+  const count = await prisma.shipment.count({
+    where: {
+      tripId: null,
+      status: ShipmentStatus.AWAITING_MATCH,
+      userId: { not: user.id },
+      OR: routeFilters,
+    },
+  });
+
+  return { count };
+};
+
 export const TripService = {
   createTrip,
   getTrips,
@@ -650,4 +683,5 @@ export const TripService = {
   acceptShipment,
   completeTrip,
   getAvailableShipments,
+  getAvailableShipmentsCount,
 };

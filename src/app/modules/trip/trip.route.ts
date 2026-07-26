@@ -23,6 +23,12 @@ router.get(
   TripController.getAvailableShipments,
 );
 
+router.get(
+  "/available-shipments/count",
+  authGuard(),
+  TripController.getAvailableShipmentsCount,
+);
+
 router.get("/:id", authGuard(), TripController.getTripById);
 
 router.patch(

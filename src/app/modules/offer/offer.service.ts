@@ -267,6 +267,27 @@ const getReceivedOffers = async (user: User) => {
   return offers;
 };
 
+const getReceivedOffersCount = async (user: User) => {
+  await expireStaleOffers();
+
+  const count = await prisma.offer.count({
+    where: {
+      shipment: {
+        userId: user.id,
+      },
+      status: {
+        in: [
+          OfferStatus.PENDING,
+          OfferStatus.PAYMENT_PENDING,
+          OfferStatus.PAYMENT_CANCELED,
+        ],
+      },
+    },
+  });
+
+  return { count };
+};
+
 const getSentOffers = async (user: User) => {
   await expireStaleOffers();
 
@@ -627,6 +648,7 @@ export const OfferService = {
   createOffer,
   getOffersForShipment,
   getReceivedOffers,
+  getReceivedOffersCount,
   getSentOffers,
   acceptOffer,
   cancelCheckout,
