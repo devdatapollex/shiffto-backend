@@ -45,8 +45,20 @@ const reactivateUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAdminAnalytics = catchAsync(async (_req: Request, res: Response) => {
+  const result = await AdminService.getAdminAnalytics();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Admin analytics fetched successfully",
+    data: result,
+  });
+});
+
 export const AdminController = {
   getKycSubmissions,
   reviewKyc,
   reactivateUser,
+  getAdminAnalytics,
 };

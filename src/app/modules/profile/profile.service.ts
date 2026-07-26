@@ -242,15 +242,15 @@ const getAnalytics = async (userId: string) => {
   // 3. Payment & Earnings Metrics
   const releasedTxns = await prisma.paymentTransaction.aggregate({
     where: { travellerId: userId, status: "RELEASED" },
-    _sum: { grossAmount: true },
+    _sum: { netAmount: true },
   });
-  const totalEarnings = releasedTxns._sum?.grossAmount || 0;
+  const totalEarnings = releasedTxns._sum?.netAmount || 0;
 
   const escrowTxns = await prisma.paymentTransaction.aggregate({
     where: { travellerId: userId, status: "ESCROWED" },
-    _sum: { grossAmount: true },
+    _sum: { netAmount: true },
   });
-  const pendingEarnings = escrowTxns._sum?.grossAmount || 0;
+  const pendingEarnings = escrowTxns._sum?.netAmount || 0;
 
   const senderTxns = await prisma.paymentTransaction.aggregate({
     where: {
@@ -264,9 +264,9 @@ const getAnalytics = async (userId: string) => {
   // Completed/Approved withdrawals
   const completedWithdrawals = await prisma.withdrawalRequest.aggregate({
     where: { userId, status: "APPROVED" },
-    _sum: { grossAmount: true },
+    _sum: { amount: true },
   });
-  const totalWithdrawn = completedWithdrawals._sum?.grossAmount || 0;
+  const totalWithdrawn = completedWithdrawals._sum?.amount || 0;
 
   const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
 

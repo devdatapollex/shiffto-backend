@@ -2,6 +2,7 @@ import prisma from "../../lib/prisma";
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import { User } from "../../lib/auth";
+import { Prisma } from "../../../generated/prisma/client";
 import {
   PaymentStatus,
   OfferStatus,
@@ -55,14 +56,6 @@ const getSenderPaymentsSummary = async (userId: string) => {
 };
 
 const getTravelerEarningsSummary = async (userId: string) => {
-  // Fetch system commission rate setting (default 30% = 0.30)
-  const commissionSetting = await prisma.systemSetting.findUnique({
-    where: { key: "WITHDRAWAL_COMMISSION_RATE" },
-  });
-  const commissionRate = commissionSetting
-    ? parseFloat(commissionSetting.value)
-    : 0.3;
-
   // Fetch all payment transactions earned by traveler
   const transactions = await prisma.paymentTransaction.findMany({
     where: { travellerId: userId },
@@ -78,18 +71,18 @@ const getTravelerEarningsSummary = async (userId: string) => {
     orderBy: { createdAt: "desc" },
   });
 
-  // Calculate earnings
+  // Calculate net earnings
   let totalEarnings = 0;
+  let escrowedEarnings = 0;
   let pendingReleaseEarnings = 0;
 
   transactions.forEach((tx) => {
     if (tx.status === PaymentStatus.RELEASED) {
-      totalEarnings += tx.grossAmount;
-    } else if (
-      tx.status === PaymentStatus.ESCROWED ||
-      tx.status === PaymentStatus.PENDING_RELEASE
-    ) {
-      pendingReleaseEarnings += tx.grossAmount;
+      totalEarnings += tx.netAmount;
+    } else if (tx.status === PaymentStatus.ESCROWED) {
+      escrowedEarnings += tx.netAmount;
+    } else if (tx.status === PaymentStatus.PENDING_RELEASE) {
+      pendingReleaseEarnings += tx.netAmount;
     }
   });
 
@@ -100,41 +93,29 @@ const getTravelerEarningsSummary = async (userId: string) => {
   });
 
   let awaitingPayout = 0;
-  let totalWithdrawnGross = 0;
+  let totalWithdrawn = 0;
 
   withdrawalRequests.forEach((req) => {
     if (req.status === WithdrawalStatus.PENDING) {
-      awaitingPayout += req.netAmount;
-      totalWithdrawnGross += req.grossAmount;
+      awaitingPayout += req.amount;
+      totalWithdrawn += req.amount;
     } else if (req.status === WithdrawalStatus.APPROVED) {
-      totalWithdrawnGross += req.grossAmount;
+      totalWithdrawn += req.amount;
     }
   });
 
-  const availableForWithdrawal = Math.max(
-    0,
-    totalEarnings - totalWithdrawnGross,
-  );
+  const availableForWithdrawal = Math.max(0, totalEarnings - totalWithdrawn);
 
   return {
     stats: {
       totalEarnings,
+      escrowedEarnings,
       pendingReleaseEarnings,
       awaitingPayout,
       disputeAmount: 0,
       availableForWithdrawal,
-      commissionRate,
-      commissionPercentage: Math.round(commissionRate * 100),
     },
-    earningsHistory: transactions.map((tx) => {
-      const commAmount = tx.grossAmount * commissionRate;
-      const netAmount = tx.grossAmount - commAmount;
-      return {
-        ...tx,
-        commissionAmount: commAmount,
-        netAmount,
-      };
-    }),
+    earningsHistory: transactions,
     withdrawalHistory: withdrawalRequests,
   };
 };
@@ -317,10 +298,185 @@ const releasePayment = async (transactionId: string, adminUser: User) => {
   });
 };
 
+interface GetAdminPaymentsQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const whereConditions: Prisma.PaymentTransactionWhereInput = {};
+
+  if (query.search) {
+    const s = query.search.trim();
+    whereConditions.OR = [
+      { transactionId: { contains: s, mode: "insensitive" } },
+      { gatewayTxnId: { contains: s, mode: "insensitive" } },
+      { shipment: { itemName: { contains: s, mode: "insensitive" } } },
+      { sender: { name: { contains: s, mode: "insensitive" } } },
+      { sender: { email: { contains: s, mode: "insensitive" } } },
+      { traveller: { name: { contains: s, mode: "insensitive" } } },
+      { traveller: { email: { contains: s, mode: "insensitive" } } },
+    ];
+  }
+
+  if (query.status && query.status !== "ALL") {
+    whereConditions.status = query.status.toUpperCase() as PaymentStatus;
+  }
+
+  const orderByField = query.sortBy || "createdAt";
+  const orderByDir = query.sortOrder || "desc";
+
+  const transactions = await prisma.paymentTransaction.findMany({
+    where: whereConditions,
+    skip,
+    take: limit,
+    orderBy: { [orderByField]: orderByDir },
+    include: {
+      shipment: {
+        select: {
+          id: true,
+          itemName: true,
+          status: true,
+          weight: true,
+          tripId: true,
+        },
+      },
+      offer: {
+        select: {
+          id: true,
+          tripId: true,
+          offeredPrice: true,
+          trip: {
+            select: {
+              id: true,
+              fromCountry: true,
+              toCountry: true,
+            },
+          },
+        },
+      },
+      sender: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          image: true,
+        },
+      },
+      traveller: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          image: true,
+        },
+      },
+    },
+  });
+
+  const total = await prisma.paymentTransaction.count({
+    where: whereConditions,
+  });
+
+  // Compute overall KPI statistics
+  const allTxns = await prisma.paymentTransaction.findMany({
+    select: {
+      grossAmount: true,
+      commissionAmount: true,
+      netAmount: true,
+      commissionRate: true,
+      status: true,
+    },
+  });
+
+  let totalPlatformRevenue = 0;
+  let totalGrossVolume = 0;
+  let totalEscrowed = 0;
+  let totalPendingRelease = 0;
+  let totalReleased = 0;
+  let totalRefunded = 0;
+
+  allTxns.forEach((tx) => {
+    const commission =
+      tx.commissionAmount > 0
+        ? tx.commissionAmount
+        : tx.grossAmount * (tx.commissionRate || 0.3);
+    const net =
+      tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commission;
+
+    if (
+      tx.status === PaymentStatus.PENDING_RELEASE ||
+      tx.status === PaymentStatus.RELEASED
+    ) {
+      totalPlatformRevenue += commission;
+      totalGrossVolume += tx.grossAmount;
+    }
+
+    if (tx.status === PaymentStatus.ESCROWED) {
+      totalEscrowed += tx.grossAmount;
+    } else if (tx.status === PaymentStatus.PENDING_RELEASE) {
+      totalPendingRelease += tx.grossAmount;
+    } else if (tx.status === PaymentStatus.RELEASED) {
+      totalReleased += net;
+    } else if (
+      tx.status === PaymentStatus.REFUNDED ||
+      tx.status === PaymentStatus.FAILED
+    ) {
+      totalRefunded += tx.grossAmount;
+    }
+  });
+
+  const commissionRate = 0.3; // Standard 30% commission
+
+  const data = transactions.map((tx) => {
+    const commissionAmount =
+      tx.commissionAmount > 0
+        ? tx.commissionAmount
+        : tx.grossAmount * commissionRate;
+    const netAmount =
+      tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commissionAmount;
+    return {
+      ...tx,
+      commissionAmount,
+      netAmount,
+    };
+  });
+
+  return {
+    stats: {
+      totalPlatformRevenue,
+      totalGrossVolume,
+      totalEscrowed,
+      totalPendingRelease,
+      totalReleased,
+      totalRefunded,
+      estimatedCommission: totalPlatformRevenue,
+      commissionRate,
+    },
+    meta: {
+      page,
+      limit,
+      total,
+    },
+    data,
+  };
+};
+
 export const PaymentService = {
   getSenderPaymentsSummary,
   getTravelerEarningsSummary,
   handlePaymentSuccess,
   handlePaymentFailureOrExpiration,
   releasePayment,
+  getAdminPayments,
 };
