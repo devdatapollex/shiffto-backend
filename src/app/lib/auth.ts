@@ -11,11 +11,38 @@ import config from "../../config/index";
 import { ac, admin, user } from "../../config/permissions";
 import { sendVerificationOTP } from "./email";
 
+import { APIError } from "better-auth/api";
+
 const rolesConfig = { admin, user };
 
 export const auth = betterAuth({
   advanced: {
     disableOriginCheck: true, // set false for production
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          const email = user.email.toLowerCase().trim();
+          const existingUser = await prisma.user.findFirst({
+            where: {
+              email: { equals: email, mode: "insensitive" },
+            },
+          });
+          if (existingUser) {
+            throw new APIError("BAD_REQUEST", {
+              message: "User with this email already exists",
+            });
+          }
+          return {
+            data: {
+              ...user,
+              email,
+            },
+          };
+        },
+      },
+    },
   },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
