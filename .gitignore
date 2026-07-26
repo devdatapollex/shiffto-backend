@@ -10,3 +10,4 @@ uploads
 .commandcode/
 .vercel
 .env*.local
+.worktrees/
