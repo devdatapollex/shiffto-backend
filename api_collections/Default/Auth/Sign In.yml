@@ -21,7 +21,7 @@ http:
       //   "email": "shiffto.admin@gmail.com",
       //   "password": "12345678"
         
-        "email": "demouser1@gmail.com",
+        "email": "test1@example.com",
         "password": "12345678"
 
       }
