@@ -15,6 +15,11 @@ router.post(
 
 router.get("/sent", authGuard(), OfferController.getSentOffers);
 router.get("/received", authGuard(), OfferController.getReceivedOffers);
+router.get(
+  "/received/count",
+  authGuard(),
+  OfferController.getReceivedOffersCount,
+);
 
 router.post("/:id/accept", authGuard(), OfferController.acceptOffer);
 router.post(

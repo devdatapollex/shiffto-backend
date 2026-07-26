@@ -39,6 +39,19 @@ const getReceivedOffers = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getReceivedOffersCount = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await OfferService.getReceivedOffersCount(req.user!);
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Received offers count fetched successfully",
+      data: result,
+    });
+  },
+);
+
 const getSentOffers = catchAsync(async (req: Request, res: Response) => {
   const result = await OfferService.getSentOffers(req.user!);
 
@@ -96,6 +109,7 @@ export const OfferController = {
   createOffer,
   getOffersForShipment,
   getReceivedOffers,
+  getReceivedOffersCount,
   getSentOffers,
   acceptOffer,
   cancelCheckout,
