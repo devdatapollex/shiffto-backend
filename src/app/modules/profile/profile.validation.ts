@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DocumentType } from "../../../generated/prisma/enums";
 
 const updateProfileSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
@@ -22,7 +23,7 @@ const changePasswordSchema = z
   });
 
 const submitKycSchema = z.object({
-  documentType: z.enum(["PASSPORT", "DRIVING_LICENSE", "NID"]),
+  documentType: z.nativeEnum(DocumentType),
   documentNumber: z.string().min(1, "Document number is required"),
   nationality: z.string().min(1, "Nationality is required"),
   phoneNumber: z.string().min(1, "Phone number is required"),

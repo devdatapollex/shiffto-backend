@@ -38,11 +38,17 @@ model User {
   @@map("user")
 }
 
+enum DocumentType {
+  PASSPORT
+  DRIVING_LICENSE
+  NID
+}
+
 model Kyc {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documentType    String // "PASSPORT" | "DRIVING_LICENSE" | "NID"
+  id              String       @id @default(uuid())
+  userId          String       @unique
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType    DocumentType
   documentNumber  String
   nationality     String
   phoneNumber     String
@@ -50,10 +56,10 @@ model Kyc {
   frontPhotoKey   String
   backPhotoUrl    String
   backPhotoKey    String
-  status          String   @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  status          String       @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
   rejectionReason String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@map("kyc")
 }
