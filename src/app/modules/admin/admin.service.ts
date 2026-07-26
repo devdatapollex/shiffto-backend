@@ -80,8 +80,155 @@ const reactivateUser = async (userId: string) => {
   return updatedUser;
 };
 
+const getAdminAnalytics = async () => {
+  const [
+    totalUsers,
+    approvedKycUsers,
+    totalShipments,
+    activeShipments,
+    deliveredShipments,
+    totalTrips,
+    activeTrips,
+    completedTrips,
+    pendingKycCount,
+    pendingReleasesCount,
+    pendingTripsCount,
+    openTicketsCount,
+    pendingWithdrawalsCount,
+    paymentAgg,
+    recentKyc,
+    recentTickets,
+    recentPayments,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.kyc.count({ where: { status: "APPROVED" } }),
+    prisma.shipment.count(),
+    prisma.shipment.count({ where: { status: "ACTIVE" } }),
+    prisma.shipment.count({ where: { status: "DELIVERED" } }),
+    prisma.trip.count(),
+    prisma.trip.count({
+      where: { status: { in: ["UPCOMING", "PENDING", "APPROVED"] } },
+    }),
+    prisma.trip.count({ where: { status: "COMPLETED" } }),
+    prisma.kyc.count({ where: { status: "PENDING" } }),
+    prisma.paymentTransaction.count({
+      where: { status: { in: ["ESCROWED", "PENDING_RELEASE"] } },
+    }),
+    prisma.trip.count({ where: { status: "PENDING" } }),
+    prisma.ticket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
+    prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
+    prisma.paymentTransaction.aggregate({
+      where: { status: { in: ["PENDING_RELEASE", "RELEASED"] } },
+      _sum: { grossAmount: true, commissionAmount: true },
+    }),
+    prisma.kyc.findMany({
+      where: { status: "PENDING" },
+      take: 5,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            phone: true,
+          },
+        },
+      },
+    }),
+    prisma.ticket.findMany({
+      where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
+      take: 5,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, image: true },
+        },
+      },
+    }),
+    prisma.paymentTransaction.findMany({
+      take: 5,
+      orderBy: { createdAt: "desc" },
+      include: {
+        sender: { select: { id: true, name: true, email: true } },
+        traveller: { select: { id: true, name: true, email: true } },
+      },
+    }),
+  ]);
+
+  const totalVolume = paymentAgg._sum.grossAmount || 0;
+  const totalCommission = paymentAgg._sum.commissionAmount || 0;
+
+  const chartData = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    const endOfMonth = new Date(
+      d.getFullYear(),
+      d.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const monthLabel = d.toLocaleString("en-US", { month: "short" });
+
+    const [monthShipments, monthTrips, monthPayments] = await Promise.all([
+      prisma.shipment.count({
+        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
+      }),
+      prisma.trip.count({
+        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
+      }),
+      prisma.paymentTransaction.aggregate({
+        where: {
+          createdAt: { gte: startOfMonth, lte: endOfMonth },
+          status: { in: ["PENDING_RELEASE", "RELEASED"] },
+        },
+        _sum: { grossAmount: true },
+      }),
+    ]);
+
+    chartData.push({
+      month: monthLabel,
+      shipments: monthShipments,
+      trips: monthTrips,
+      volume: monthPayments._sum.grossAmount || 0,
+    });
+  }
+
+  return {
+    stats: {
+      totalUsers,
+      approvedKycUsers,
+      totalShipments,
+      activeShipments,
+      deliveredShipments,
+      totalTrips,
+      activeTrips,
+      completedTrips,
+      pendingKycCount,
+      pendingReleasesCount,
+      pendingTripsCount,
+      openTicketsCount,
+      pendingWithdrawalsCount,
+      totalVolume,
+      totalCommission,
+    },
+    chartData,
+    recentKyc,
+    recentTickets,
+    recentPayments,
+  };
+};
+
 export const AdminService = {
   getKycSubmissions,
   reviewKyc,
   reactivateUser,
+  getAdminAnalytics,
 };
