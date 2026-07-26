@@ -38,12 +38,19 @@ const mockPaymentTransaction = {
   updateMany: vi.fn(),
 };
 
+const mockSystemSetting = {
+  findUnique: vi
+    .fn()
+    .mockResolvedValue({ key: "WITHDRAWAL_COMMISSION_RATE", value: "0.30" }),
+};
+
 const mockPrisma = {
   offer: mockOffer,
   shipment: mockShipment,
   trip: mockTrip,
   notification: mockNotification,
   paymentTransaction: mockPaymentTransaction,
+  systemSetting: mockSystemSetting,
   $transaction: vi.fn((cb: (tx: typeof mockPrisma) => Promise<unknown>) =>
     cb(mockPrisma),
   ),
@@ -283,6 +290,10 @@ describe("OfferService", () => {
       mockOffer.findUnique.mockResolvedValueOnce(mockOfferData);
       mockOffer.findFirst.mockResolvedValueOnce(null);
       mockTrip.findUnique.mockResolvedValue(mockOfferData.trip);
+      mockSystemSetting.findUnique.mockResolvedValue({
+        key: "WITHDRAWAL_COMMISSION_RATE",
+        value: "0.30",
+      });
       mockOffer.update.mockResolvedValue({
         ...mockOfferData,
         status: OfferStatus.PAYMENT_PENDING,
@@ -312,6 +323,18 @@ describe("OfferService", () => {
       });
 
       expect(mockPaymentTransaction.create).toHaveBeenCalled();
+    });
+
+    it("should throw error if system commission rate setting is missing", async () => {
+      mockOffer.findUnique.mockResolvedValueOnce(mockOfferData);
+      mockOffer.findFirst.mockResolvedValueOnce(null);
+      mockTrip.findUnique.mockResolvedValue(mockOfferData.trip);
+      mockSystemSetting.findUnique.mockResolvedValueOnce(null);
+
+      const { OfferService } = await importService();
+      await expect(
+        OfferService.acceptOffer("offer-1", mockSenderUser as any),
+      ).rejects.toThrow("Platform commission rate setting is not configured");
     });
 
     it("should throw error if non-owner tries to accept", async () => {

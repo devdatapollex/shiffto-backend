@@ -19,6 +19,13 @@ router.get(
   PaymentController.getTravelerSummary,
 );
 
+// Admin Payments Overview & Listing
+router.get(
+  "/admin",
+  authGuard({ adminOnly: true }),
+  PaymentController.getAdminPayments,
+);
+
 // Admin Payment Release
 router.post(
   "/:transactionId/release",

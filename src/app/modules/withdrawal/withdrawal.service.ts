@@ -6,7 +6,8 @@ import { WithdrawalStatus } from "../../../generated/prisma/enums";
 import { PaymentService } from "../payment/payment.service";
 
 export interface RequestWithdrawalPayload {
-  grossAmount: number;
+  amount?: number;
+  grossAmount?: number;
   paymentMethodId: string;
 }
 
@@ -14,7 +15,8 @@ const requestWithdrawal = async (
   userId: string,
   payload: RequestWithdrawalPayload,
 ) => {
-  if (payload.grossAmount <= 0) {
+  const withdrawAmount = payload.amount ?? payload.grossAmount ?? 0;
+  if (withdrawAmount <= 0) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       "Withdrawal amount must be greater than zero",
@@ -25,10 +27,10 @@ const requestWithdrawal = async (
     // 1. Calculate available balance
     const travelerSummary =
       await PaymentService.getTravelerEarningsSummary(userId);
-    if (travelerSummary.stats.availableForWithdrawal < payload.grossAmount) {
+    if (travelerSummary.stats.availableForWithdrawal < withdrawAmount) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        `Insufficient available funds. Available: $${travelerSummary.stats.availableForWithdrawal.toFixed(2)}, Requested: $${payload.grossAmount.toFixed(2)}`,
+        `Insufficient available funds. Available: $${travelerSummary.stats.availableForWithdrawal.toFixed(2)}, Requested: $${withdrawAmount.toFixed(2)}`,
       );
     }
 
@@ -41,30 +43,16 @@ const requestWithdrawal = async (
       throw new ApiError(httpStatus.NOT_FOUND, "Payment method not found");
     }
 
-    // 3. Get system commission rate
-    const commissionSetting = await tx.systemSetting.findUnique({
-      where: { key: "WITHDRAWAL_COMMISSION_RATE" },
-    });
-    const commissionRate = commissionSetting
-      ? parseFloat(commissionSetting.value)
-      : 0.3;
-
-    const commissionAmount = payload.grossAmount * commissionRate;
-    const netAmount = payload.grossAmount - commissionAmount;
-
-    // 4. Generate unique withdrawal number (WDR-xxx)
+    // 3. Generate unique withdrawal number (WDR-xxx)
     const count = await tx.withdrawalRequest.count();
     const withdrawalNo = `WDR-${String(count + 1).padStart(3, "0")}`;
 
-    // 5. Create WithdrawalRequest
+    // 4. Create WithdrawalRequest
     const withdrawal = await tx.withdrawalRequest.create({
       data: {
         withdrawalNo,
         userId,
-        grossAmount: payload.grossAmount,
-        commissionRate,
-        commissionAmount,
-        netAmount,
+        amount: withdrawAmount,
         paymentMethodId: paymentMethod.id,
         paymentMethodDetails: {
           type: paymentMethod.type,
@@ -79,12 +67,12 @@ const requestWithdrawal = async (
       },
     });
 
-    // 6. Create notification
+    // 5. Create notification
     await tx.notification.create({
       data: {
         userId,
         title: "Withdrawal Request Submitted",
-        message: `Your withdrawal request ${withdrawalNo} for $${payload.grossAmount} (Net payout: $${netAmount.toFixed(2)}) has been submitted for admin processing.`,
+        message: `Your withdrawal request ${withdrawalNo} for $${withdrawAmount.toFixed(2)} has been submitted for admin processing.`,
       },
     });
 
@@ -173,7 +161,7 @@ const approveWithdrawal = async (
       data: {
         userId: withdrawal.userId,
         title: "Withdrawal Approved & Transferred",
-        message: `Your withdrawal request ${withdrawal.withdrawalNo} of $${withdrawal.netAmount.toFixed(2)} has been transferred! Txn Ref: ${payoutTxnId}`,
+        message: `Your withdrawal request ${withdrawal.withdrawalNo} of $${withdrawal.amount.toFixed(2)} has been transferred! Txn Ref: ${payoutTxnId}`,
       },
     });
 

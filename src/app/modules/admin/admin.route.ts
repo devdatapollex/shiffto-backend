@@ -7,6 +7,12 @@ import { AdminValidation } from "./admin.validation";
 const router = express.Router();
 
 router.get(
+  "/analytics",
+  authGuard({ adminOnly: true }),
+  AdminController.getAdminAnalytics,
+);
+
+router.get(
   "/kyc",
   authGuard({ adminOnly: true }),
   AdminController.getKycSubmissions,
