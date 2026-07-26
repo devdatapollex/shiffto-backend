@@ -15,9 +15,9 @@ http:
     type: json
     data: |-
       {
-        "name": "Test User 5",
-        "email": "test5@example.com",
-        "password": "password123"
+        "name": "Test User 30",
+        "email": "test30@example.com",
+        "password": "12345678"
       }
   auth: inherit
 

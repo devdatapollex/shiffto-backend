@@ -1,6 +1,9 @@
 import prisma from "../../src/app/lib/prisma";
 import { auth } from "../../src/app/lib/auth";
-import { shipmentStepStage } from "../../src/generated/prisma/enums";
+import {
+  shipmentStepStage,
+  DocumentType,
+} from "../../src/generated/prisma/enums";
 
 const defaultCategories = [
   {
@@ -149,7 +152,7 @@ async function seedShipments() {
     await prisma.kyc.create({
       data: {
         userId: user.id,
-        documentType: "PASSPORT",
+        documentType: DocumentType.PASSPORT,
         documentNumber: "A12345678",
         nationality: "American",
         phoneNumber: "+15555555555",
