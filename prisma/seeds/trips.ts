@@ -1,5 +1,6 @@
 import prisma from "../../src/app/lib/prisma";
 import { auth } from "../../src/app/lib/auth";
+import { DocumentType } from "../../src/generated/prisma/enums";
 
 const tripsToSeed = [
   {
@@ -78,7 +79,7 @@ async function seedTrips() {
     await prisma.kyc.create({
       data: {
         userId: user.id,
-        documentType: "PASSPORT",
+        documentType: DocumentType.PASSPORT,
         documentNumber: "B87654321",
         nationality: "British",
         phoneNumber: "+447700900088",

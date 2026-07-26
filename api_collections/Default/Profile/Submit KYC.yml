@@ -13,7 +13,7 @@ http:
     type: json
     data: |-
       {
-        "documentType": "PASSPORT",
+        "documentType": "DRIVING_LICENSE",
         "documentNumber": "AB1234567",
         "nationality": "US",
         "phoneNumber": "+1234567890",
