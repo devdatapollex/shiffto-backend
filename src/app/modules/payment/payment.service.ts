@@ -392,31 +392,42 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
   const allTxns = await prisma.paymentTransaction.findMany({
     select: {
       grossAmount: true,
+      commissionAmount: true,
+      netAmount: true,
+      commissionRate: true,
       status: true,
     },
   });
 
+  let totalPlatformRevenue = 0;
   let totalGrossVolume = 0;
   let totalEscrowed = 0;
+  let totalPendingRelease = 0;
   let totalReleased = 0;
   let totalRefunded = 0;
 
   allTxns.forEach((tx) => {
+    const commission =
+      tx.commissionAmount > 0
+        ? tx.commissionAmount
+        : tx.grossAmount * (tx.commissionRate || 0.3);
+    const net =
+      tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commission;
+
     if (
-      tx.status === PaymentStatus.ESCROWED ||
       tx.status === PaymentStatus.PENDING_RELEASE ||
       tx.status === PaymentStatus.RELEASED
     ) {
+      totalPlatformRevenue += commission;
       totalGrossVolume += tx.grossAmount;
     }
 
-    if (
-      tx.status === PaymentStatus.ESCROWED ||
-      tx.status === PaymentStatus.PENDING_RELEASE
-    ) {
+    if (tx.status === PaymentStatus.ESCROWED) {
       totalEscrowed += tx.grossAmount;
+    } else if (tx.status === PaymentStatus.PENDING_RELEASE) {
+      totalPendingRelease += tx.grossAmount;
     } else if (tx.status === PaymentStatus.RELEASED) {
-      totalReleased += tx.grossAmount;
+      totalReleased += net;
     } else if (
       tx.status === PaymentStatus.REFUNDED ||
       tx.status === PaymentStatus.FAILED
@@ -426,11 +437,14 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
   });
 
   const commissionRate = 0.3; // Standard 30% commission
-  const estimatedCommission = totalReleased * commissionRate;
 
   const data = transactions.map((tx) => {
-    const commissionAmount = tx.grossAmount * commissionRate;
-    const netAmount = tx.grossAmount - commissionAmount;
+    const commissionAmount =
+      tx.commissionAmount > 0
+        ? tx.commissionAmount
+        : tx.grossAmount * commissionRate;
+    const netAmount =
+      tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commissionAmount;
     return {
       ...tx,
       commissionAmount,
@@ -440,11 +454,13 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
 
   return {
     stats: {
+      totalPlatformRevenue,
       totalGrossVolume,
       totalEscrowed,
+      totalPendingRelease,
       totalReleased,
       totalRefunded,
-      estimatedCommission,
+      estimatedCommission: totalPlatformRevenue,
       commissionRate,
     },
     meta: {
