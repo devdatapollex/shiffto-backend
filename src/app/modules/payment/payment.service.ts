@@ -114,6 +114,7 @@ const getTravelerEarningsSummary = async (userId: string) => {
       awaitingPayout,
       disputeAmount: 0,
       availableForWithdrawal,
+      totalWithdrawn,
     },
     earningsHistory: transactions,
     withdrawalHistory: withdrawalRequests,
@@ -411,8 +412,7 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
       tx.commissionAmount > 0
         ? tx.commissionAmount
         : tx.grossAmount * (tx.commissionRate || 0.3);
-    const net =
-      tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commission;
+    const net = tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commission;
 
     if (
       tx.status === PaymentStatus.PENDING_RELEASE ||
