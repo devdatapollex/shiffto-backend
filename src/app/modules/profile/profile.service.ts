@@ -268,7 +268,17 @@ const getAnalytics = async (userId: string) => {
   });
   const totalWithdrawn = completedWithdrawals._sum?.amount || 0;
 
-  const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
+  // Pending withdrawals (awaiting payout)
+  const pendingWithdrawals = await prisma.withdrawalRequest.aggregate({
+    where: { userId, status: "PENDING" },
+    _sum: { amount: true },
+  });
+  const awaitingPayout = pendingWithdrawals._sum?.amount || 0;
+
+  const availableBalance = Math.max(
+    0,
+    totalEarnings - totalWithdrawn - awaitingPayout,
+  );
 
   // 4. Recent Shipments & Trips
   const recentShipments = await prisma.shipment.findMany({
