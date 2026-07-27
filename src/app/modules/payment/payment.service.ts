@@ -98,13 +98,15 @@ const getTravelerEarningsSummary = async (userId: string) => {
   withdrawalRequests.forEach((req) => {
     if (req.status === WithdrawalStatus.PENDING) {
       awaitingPayout += req.amount;
-      totalWithdrawn += req.amount;
     } else if (req.status === WithdrawalStatus.APPROVED) {
       totalWithdrawn += req.amount;
     }
   });
 
-  const availableForWithdrawal = Math.max(0, totalEarnings - totalWithdrawn);
+  const availableForWithdrawal = Math.max(
+    0,
+    totalEarnings - totalWithdrawn - awaitingPayout,
+  );
 
   return {
     stats: {
