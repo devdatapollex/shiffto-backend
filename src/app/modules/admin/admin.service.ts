@@ -227,15 +227,21 @@ const getAdminAnalytics = async () => {
 };
 
 const getSidebarCounts = async () => {
-  const [pendingKycCount, openTicketsCount, pendingWithdrawalsCount] =
-    await Promise.all([
-      prisma.kyc.count({ where: { status: "PENDING" } }),
-      prisma.ticket.count({ where: { status: "OPEN" } }),
-      prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
-    ]);
+  const [
+    pendingKycCount,
+    pendingTripsCount,
+    openTicketsCount,
+    pendingWithdrawalsCount,
+  ] = await Promise.all([
+    prisma.kyc.count({ where: { status: "PENDING" } }),
+    prisma.trip.count({ where: { status: "PENDING" } }),
+    prisma.ticket.count({ where: { status: "OPEN" } }),
+    prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
+  ]);
 
   return {
     pendingKycCount,
+    pendingTripsCount,
     openTicketsCount,
     pendingWithdrawalsCount,
   };
