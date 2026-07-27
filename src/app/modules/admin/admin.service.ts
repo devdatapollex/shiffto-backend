@@ -245,11 +245,13 @@ const getSidebarCounts = async () => {
     pendingTripsCount,
     openTicketsCount,
     pendingWithdrawalsCount,
+    pendingShipmentsCount,
   ] = await Promise.all([
     prisma.kyc.count({ where: { status: "PENDING" } }),
     prisma.trip.count({ where: { status: "PENDING" } }),
     prisma.ticket.count({ where: { status: "OPEN" } }),
     prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
+    prisma.paymentTransaction.count({ where: { status: "PENDING_RELEASE" } }),
   ]);
 
   return {
@@ -257,6 +259,7 @@ const getSidebarCounts = async () => {
     pendingTripsCount,
     openTicketsCount,
     pendingWithdrawalsCount,
+    pendingShipmentsCount,
   };
 };
 

@@ -154,7 +154,11 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
 
   // Status filter
   if (query.status) {
-    where.status = query.status as string;
+    if (query.status === "PENDING_RELEASE") {
+      where.paymentTransaction = { status: "PENDING_RELEASE" };
+    } else {
+      where.status = query.status as string;
+    }
   }
 
   // Search across multiple fields
@@ -188,7 +192,18 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
     skip,
     take: limit,
     orderBy: { [sortField]: sortOrder },
-    include: { category: true },
+    include: {
+      category: true,
+      paymentTransaction: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
   });
 
   const total = await prisma.shipment.count({ where });
