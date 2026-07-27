@@ -50,12 +50,25 @@ const reviewKyc = async (
     throw new ApiError(httpStatus.NOT_FOUND, "KYC submission not found");
   }
 
-  const updatedKyc = await prisma.kyc.update({
-    where: { id: kycId },
-    data: {
-      status,
-      rejectionReason: status === "REJECTED" ? rejectionReason : null,
-    },
+  const updatedKyc = await prisma.$transaction(async (tx) => {
+    const updated = await tx.kyc.update({
+      where: { id: kycId },
+      data: {
+        status,
+        rejectionReason: status === "REJECTED" ? rejectionReason : null,
+      },
+    });
+
+    if (status === "APPROVED") {
+      await tx.user.update({
+        where: { id: kyc.userId },
+        data: {
+          phone: kyc.phoneNumber,
+        },
+      });
+    }
+
+    return updated;
   });
 
   return updatedKyc;
