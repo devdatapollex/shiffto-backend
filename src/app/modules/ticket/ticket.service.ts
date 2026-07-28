@@ -6,7 +6,7 @@ import {
   ShipmentStatus,
   shipmentStepStage,
 } from "../../../generated/prisma/enums";
-import { getIO } from "../../lib/socket";
+import { emitToRoom } from "../../lib/socket";
 
 // 3 days in milliseconds
 const DISPUTE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
@@ -561,8 +561,7 @@ const addComment = async (
 
   // Socket broadcast of new comment
   try {
-    const io = getIO();
-    io.to(ticketId).emit("new-comment", comment);
+    emitToRoom(ticketId, "new-comment", comment);
   } catch (error) {
     console.error("Failed to emit new-comment socket event:", error);
   }
@@ -703,8 +702,7 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
 
   // Socket broadcast of status change
   try {
-    const io = getIO();
-    io.to(id).emit("ticket-status-updated", {
+    emitToRoom(id, "ticket-status-updated", {
       ticketId: ticket.ticketId,
       id,
       status: "CLOSED",
@@ -896,8 +894,7 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
 
   // Socket broadcast of status change
   try {
-    const io = getIO();
-    io.to(ticketId).emit("ticket-status-updated", {
+    emitToRoom(ticketId, "ticket-status-updated", {
       ticketId: ticket.ticketId,
       id: ticketId,
       status: upperStatus,
