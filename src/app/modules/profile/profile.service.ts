@@ -268,7 +268,17 @@ const getAnalytics = async (userId: string) => {
   });
   const totalWithdrawn = completedWithdrawals._sum?.amount || 0;
 
-  const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
+  // Pending withdrawals (awaiting payout)
+  const pendingWithdrawals = await prisma.withdrawalRequest.aggregate({
+    where: { userId, status: "PENDING" },
+    _sum: { amount: true },
+  });
+  const awaitingPayout = pendingWithdrawals._sum?.amount || 0;
+
+  const availableBalance = Math.max(
+    0,
+    totalEarnings - totalWithdrawn - awaitingPayout,
+  );
 
   // 4. Recent Shipments & Trips
   const recentShipments = await prisma.shipment.findMany({
@@ -371,9 +381,10 @@ const getAnalytics = async (userId: string) => {
       flightDate: t.flightDate,
       flightTime: t.flightTime,
       airportArrivalTime: t.airportArrivalTime,
-      totalCapacity: (t.cabinBagCapacity || 0) + (t.checkInBagCapacity || 0),
-      remainingCapacity:
-        (t.remainingCabinCapacity || 0) + (t.remainingCheckInCapacity || 0),
+      cabinBagCapacity: t.cabinBagCapacity || 0,
+      checkInBagCapacity: t.checkInBagCapacity || 0,
+      remainingCabinCapacity: t.remainingCabinCapacity || 0,
+      remainingCheckInCapacity: t.remainingCheckInCapacity || 0,
       shipmentsCount: t._count?.shipments || 0,
       createdAt: t.createdAt,
     })),
@@ -555,6 +566,44 @@ const getShipmentChart = async (userId: string, yearStr?: string) => {
   };
 };
 
+const abortSignup = async (email: string) => {
+  if (!email) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Email is required to abort registration",
+    );
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      email: { equals: email.trim().toLowerCase(), mode: "insensitive" },
+    },
+    select: { id: true, emailVerified: true },
+  });
+
+  if (!user) {
+    return { success: true, message: "User not found or already deleted" };
+  }
+
+  if (user.emailVerified) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Cannot abort registration for a verified account",
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.session.deleteMany({ where: { userId: user.id } }),
+    prisma.account.deleteMany({ where: { userId: user.id } }),
+    prisma.user.delete({ where: { id: user.id } }),
+  ]);
+
+  return {
+    success: true,
+    message: "Signup aborted and account deleted successfully",
+  };
+};
+
 export const ProfileService = {
   getProfile,
   updateProfile,
@@ -562,6 +611,7 @@ export const ProfileService = {
   submitKyc,
   deactivateAccount,
   deleteAccount,
+  abortSignup,
   getAnalytics,
   getRevenueChart,
   getShipmentChart,

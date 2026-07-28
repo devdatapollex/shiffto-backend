@@ -65,7 +65,7 @@ describe("auth configuration", () => {
         database: "prisma-adapter",
         emailAndPassword: {
           enabled: true,
-          autoSignIn: false,
+          autoSignIn: true,
           requireEmailVerification: true,
         },
         emailVerification: {

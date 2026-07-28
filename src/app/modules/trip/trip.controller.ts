@@ -133,6 +133,19 @@ const getAvailableShipments = catchAsync(
   },
 );
 
+const getAvailableShipmentsCount = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await TripService.getAvailableShipmentsCount(req.user!);
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Available shipments count fetched successfully",
+      data: result,
+    });
+  },
+);
+
 export const TripController = {
   createTrip,
   getTrips,
@@ -143,4 +156,5 @@ export const TripController = {
   acceptShipment,
   completeTrip,
   getAvailableShipments,
+  getAvailableShipmentsCount,
 };

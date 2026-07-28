@@ -14,6 +14,7 @@ import { WalletRoutes } from "../modules/wallet/wallet.routes";
 import { WithdrawalRoutes } from "../modules/withdrawal/withdrawal.routes";
 import { AdminSettingRoutes } from "../modules/admin-setting/admin-setting.routes";
 import { AdminUserRoutes } from "../modules/admin-user/admin-user.route";
+import { RestrictedItemRoutes } from "../modules/restricted-item/restricted-item.route";
 
 const router = express.Router();
 
@@ -33,6 +34,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/withdrawals", route: WithdrawalRoutes },
   { path: "/admin/settings", route: AdminSettingRoutes },
   { path: "/admin-users", route: AdminUserRoutes },
+  { path: "/restricted-items", route: RestrictedItemRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));
