@@ -6,6 +6,7 @@ import { sendEmail } from "../../lib/email";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 import config from "../../../config";
 import { ShipmentStatus } from "../../../generated/prisma/enums";
+import { OfferService } from "../offer/offer.service";
 
 const createTrip = async (data: any, user: User) => {
   if (data.fromCountry.toLowerCase() === data.toCountry.toLowerCase()) {
@@ -253,6 +254,10 @@ const updateTrip = async (id: string, data: any, user: User) => {
     data: updateData,
     include: { shipments: true },
   });
+
+  if (data.cabinBagCapacity !== undefined || data.checkInBagCapacity !== undefined) {
+    await OfferService.expireIneligibleOffersForTrip(id);
+  }
 
   return result;
 };
@@ -545,6 +550,8 @@ const acceptShipment = async (
       },
     });
 
+    await OfferService.expireIneligibleOffersForTrip(id, tx);
+
     return updatedShipment;
   });
 };
@@ -570,13 +577,7 @@ const completeTrip = async (id: string, user: User) => {
   return result;
 };
 
-const getAvailableShipments = async (
-  query: Record<string, unknown>,
-  user: User,
-) => {
-  const { page, limit, skip } = paginationHelpers.calculatePagination(query);
-
-  // 1. Fetch user's active trips to get their route pairs
+const buildAvailableShipmentsWhere = async (user: User) => {
   const activeTrips = await prisma.trip.findMany({
     where: {
       userId: user.id,
@@ -585,11 +586,65 @@ const getAvailableShipments = async (
     select: {
       fromCountry: true,
       toCountry: true,
+      remainingCabinCapacity: true,
+      remainingCheckInCapacity: true,
     },
   });
 
-  // 2. If no active trips, return empty response immediately
-  if (activeTrips.length === 0) {
+  if (activeTrips.length === 0) return null;
+
+  const routeMap: Record<
+    string,
+    { fromCountry: string; toCountry: string; maxSlotCapacity: number }
+  > = {};
+
+  for (const trip of activeTrips) {
+    const key = `${trip.fromCountry.toUpperCase()}_${trip.toCountry.toUpperCase()}`;
+    const tripMaxSlot = Math.max(
+      trip.remainingCabinCapacity,
+      trip.remainingCheckInCapacity,
+    );
+    if (!routeMap[key]) {
+      routeMap[key] = {
+        fromCountry: trip.fromCountry,
+        toCountry: trip.toCountry,
+        maxSlotCapacity: tripMaxSlot,
+      };
+    } else {
+      routeMap[key].maxSlotCapacity = Math.max(
+        routeMap[key].maxSlotCapacity,
+        tripMaxSlot,
+      );
+    }
+  }
+
+  const validRoutes = Object.values(routeMap).filter(
+    (r) => r.maxSlotCapacity > 0,
+  );
+  if (validRoutes.length === 0) return null;
+
+  const routeFilters = validRoutes.map((route) => ({
+    fromCountry: { equals: route.fromCountry, mode: "insensitive" as const },
+    toCountry: { equals: route.toCountry, mode: "insensitive" as const },
+    weight: { lte: route.maxSlotCapacity },
+  }));
+
+  return {
+    tripId: null,
+    status: ShipmentStatus.AWAITING_MATCH,
+    userId: { not: user.id },
+    OR: routeFilters,
+  };
+};
+
+const getAvailableShipments = async (
+  query: Record<string, unknown>,
+  user: User,
+) => {
+  const { page, limit, skip } = paginationHelpers.calculatePagination(query);
+
+  const where = await buildAvailableShipmentsWhere(user);
+  if (!where) {
     return {
       meta: {
         page,
@@ -599,19 +654,6 @@ const getAvailableShipments = async (
       data: [],
     };
   }
-
-  // 3. Build route filters (exact fromCountry & toCountry match)
-  const routeFilters = activeTrips.map((trip) => ({
-    fromCountry: { equals: trip.fromCountry, mode: "insensitive" as const },
-    toCountry: { equals: trip.toCountry, mode: "insensitive" as const },
-  }));
-
-  const where: any = {
-    tripId: null,
-    status: ShipmentStatus.AWAITING_MATCH,
-    userId: { not: user.id }, // prevent matching own shipments
-    OR: routeFilters,
-  };
 
   const data = await prisma.shipment.findMany({
     where,
@@ -641,34 +683,12 @@ const getAvailableShipments = async (
 };
 
 const getAvailableShipmentsCount = async (user: User) => {
-  const activeTrips = await prisma.trip.findMany({
-    where: {
-      userId: user.id,
-      status: "ACTIVE",
-    },
-    select: {
-      fromCountry: true,
-      toCountry: true,
-    },
-  });
-
-  if (activeTrips.length === 0) {
+  const where = await buildAvailableShipmentsWhere(user);
+  if (!where) {
     return { count: 0 };
   }
 
-  const routeFilters = activeTrips.map((trip) => ({
-    fromCountry: { equals: trip.fromCountry, mode: "insensitive" as const },
-    toCountry: { equals: trip.toCountry, mode: "insensitive" as const },
-  }));
-
-  const count = await prisma.shipment.count({
-    where: {
-      tripId: null,
-      status: ShipmentStatus.AWAITING_MATCH,
-      userId: { not: user.id },
-      OR: routeFilters,
-    },
-  });
+  const count = await prisma.shipment.count({ where });
 
   return { count };
 };
