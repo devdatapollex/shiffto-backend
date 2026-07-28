@@ -566,6 +566,44 @@ const getShipmentChart = async (userId: string, yearStr?: string) => {
   };
 };
 
+const abortSignup = async (email: string) => {
+  if (!email) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Email is required to abort registration",
+    );
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      email: { equals: email.trim().toLowerCase(), mode: "insensitive" },
+    },
+    select: { id: true, emailVerified: true },
+  });
+
+  if (!user) {
+    return { success: true, message: "User not found or already deleted" };
+  }
+
+  if (user.emailVerified) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Cannot abort registration for a verified account",
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.session.deleteMany({ where: { userId: user.id } }),
+    prisma.account.deleteMany({ where: { userId: user.id } }),
+    prisma.user.delete({ where: { id: user.id } }),
+  ]);
+
+  return {
+    success: true,
+    message: "Signup aborted and account deleted successfully",
+  };
+};
+
 export const ProfileService = {
   getProfile,
   updateProfile,
@@ -573,6 +611,7 @@ export const ProfileService = {
   submitKyc,
   deactivateAccount,
   deleteAccount,
+  abortSignup,
   getAnalytics,
   getRevenueChart,
   getShipmentChart,
