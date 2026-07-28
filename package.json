@@ -18,7 +18,8 @@
     "seed:admin": "tsx prisma/seeds/admin.ts",
     "seed:steps": "tsx prisma/seeds/step-definitions.ts",
     "seed:shipments": "tsx prisma/seeds/shipments.ts",
-    "seed:trips": "tsx prisma/seeds/trips.ts"
+    "seed:trips": "tsx prisma/seeds/trips.ts",
+    "seed:restricted-items": "tsx prisma/seeds/restricted-items.ts"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
