@@ -11,7 +11,12 @@ import { getIO } from "../../lib/socket";
 // 3 days in milliseconds
 const DISPUTE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 
-const getHtmlEmailTemplate = (title: string, messageHtml: string, actionText?: string, actionUrl?: string) => {
+const getHtmlEmailTemplate = (
+  title: string,
+  messageHtml: string,
+  actionText?: string,
+  actionUrl?: string,
+) => {
   return `
     <!DOCTYPE html>
     <html>
@@ -90,7 +95,7 @@ const getHtmlEmailTemplate = (title: string, messageHtml: string, actionText?: s
         <div class="content">
           <div class="greeting">${title}</div>
           <div class="message">${messageHtml}</div>
-          ${actionText && actionUrl ? `<div style="text-align: center; margin-top: 30px;"><a href="${actionUrl}" class="action-btn">${actionText}</a></div>` : ''}
+          ${actionText && actionUrl ? `<div style="text-align: center; margin-top: 30px;"><a href="${actionUrl}" class="action-btn">${actionText}</a></div>` : ""}
         </div>
         <div class="footer">
           <p>This is an automated message. Please do not reply directly to this email.</p>
@@ -150,18 +155,18 @@ const getAssociatedRecords = async (userId: string) => {
     return Date.now() - deliveryTime <= DISPUTE_WINDOW_MS;
   });
 
-  // Fetch trips associated with the user that are ACTIVE or COMPLETED
+  // Fetch trips associated with the user that are ACTIVE, IN_TRANSIT, ARRIVED or COMPLETED
   const trips = await prisma.trip.findMany({
     where: {
       userId,
-      status: { in: ["ACTIVE", "COMPLETED"] },
+      status: { in: ["ACTIVE", "IN_TRANSIT", "ARRIVED", "COMPLETED"] },
     },
     orderBy: { createdAt: "desc" },
   });
 
   // Filter trips based on the 3-day dispute window for COMPLETED ones
   const validTrips = trips.filter((trip) => {
-    if (trip.status === "ACTIVE") return true;
+    if (trip.status !== "COMPLETED") return true;
 
     const completionTime = new Date(trip.updatedAt).getTime();
     return Date.now() - completionTime <= DISPUTE_WINDOW_MS;
@@ -190,7 +195,15 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
   const { category, title, description, shipmentId, tripId, attachments } =
     data;
 
-  const validCategories = ["ORDER", "TRIP", "PAYMENT", "DELIVERY", "KYC", "TECHNICAL", "OTHER"];
+  const validCategories = [
+    "ORDER",
+    "TRIP",
+    "PAYMENT",
+    "DELIVERY",
+    "KYC",
+    "TECHNICAL",
+    "OTHER",
+  ];
   const upperCategory = category?.toUpperCase();
 
   if (!validCategories.includes(upperCategory)) {
@@ -287,10 +300,11 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
       );
     }
 
-    if (trip.status !== "ACTIVE" && trip.status !== "COMPLETED") {
+    const validStatuses = ["ACTIVE", "IN_TRANSIT", "ARRIVED", "COMPLETED"];
+    if (!validStatuses.includes(trip.status)) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "Only active or completed trips can be linked to tickets.",
+        "Only active, in-transit, arrived, or completed trips can be linked to tickets.",
       );
     }
 
@@ -306,7 +320,9 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
 
     resolvedTravelerId = trip.userId;
     const matchedShipment = trip.shipments.find((s) => s.userId === userId);
-    resolvedSenderId = matchedShipment ? userId : (trip.shipments[0]?.userId || null);
+    resolvedSenderId = matchedShipment
+      ? userId
+      : trip.shipments[0]?.userId || null;
   }
 
   if (attachments && attachments.length > 5) {
@@ -353,11 +369,7 @@ const getMyTickets = async (
   const skip = (page - 1) * limit;
 
   const whereClause: any = {
-    OR: [
-      { userId },
-      { senderId: userId },
-      { travelerId: userId },
-    ],
+    OR: [{ userId }, { senderId: userId }, { travelerId: userId }],
   };
   if (status) {
     whereClause.status = status.toUpperCase();
@@ -440,11 +452,16 @@ const addComment = async (
 
   let resolvedVisibleTo = "ALL";
   if (userRole === "admin") {
-    if (visibleTo === "SENDER" || visibleTo === "TRAVELER" || visibleTo === "ALL") {
+    if (
+      visibleTo === "SENDER" ||
+      visibleTo === "TRAVELER" ||
+      visibleTo === "ALL"
+    ) {
       resolvedVisibleTo = visibleTo;
     }
   } else {
-    const isTraveler = ticket.travelerId === userId && ticket.senderId !== userId;
+    const isTraveler =
+      ticket.travelerId === userId && ticket.senderId !== userId;
     resolvedVisibleTo = isTraveler ? "TRAVELER" : "SENDER";
   }
 
@@ -486,7 +503,10 @@ const addComment = async (
     if (resolvedVisibleTo === "TRAVELER" || resolvedVisibleTo === "ALL") {
       if (ticket.travelerId) {
         notifyUserIds.push(ticket.travelerId);
-      } else if (resolvedVisibleTo === "ALL" && !notifyUserIds.includes(ticket.userId)) {
+      } else if (
+        resolvedVisibleTo === "ALL" &&
+        !notifyUserIds.includes(ticket.userId)
+      ) {
         notifyUserIds.push(ticket.userId);
       }
     }
@@ -520,7 +540,7 @@ const addComment = async (
              </div>
              <p>Please log in to your dashboard to view the conversation or download any attachments.</p>`,
             "View Conversation",
-            `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+            `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`,
           );
 
           await sendEmail({
@@ -608,7 +628,8 @@ const getTicketDetails = async (
 
   // Filter comments based on role/privacy
   if (userRole !== "admin") {
-    const isTraveler = ticket.travelerId === userId && ticket.senderId !== userId;
+    const isTraveler =
+      ticket.travelerId === userId && ticket.senderId !== userId;
     const userRoleTag = isTraveler ? "TRAVELER" : "SENDER";
 
     ticket.comments = ticket.comments.filter((c) => {
@@ -621,7 +642,6 @@ const getTicketDetails = async (
 
   return ticket;
 };
-
 
 const closeTicket = async (userId: string, userRole: string, id: string) => {
   const ticket = await prisma.ticket.findUnique({
@@ -663,7 +683,7 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
            <p>Your support ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}") has been marked as <strong>CLOSED</strong> by the support team.</p>
            <p>If you have any further questions or if you encounter any other issues, please create a new ticket in the support center.</p>`,
           "Go to Support",
-          `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+          `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`,
         );
 
         await sendEmail({
@@ -684,7 +704,11 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
   // Socket broadcast of status change
   try {
     const io = getIO();
-    io.to(id).emit("ticket-status-updated", { ticketId: ticket.ticketId, id, status: "CLOSED" });
+    io.to(id).emit("ticket-status-updated", {
+      ticketId: ticket.ticketId,
+      id,
+      status: "CLOSED",
+    });
   } catch (error) {
     console.error("Failed to emit ticket-status-updated socket event:", error);
   }
@@ -853,7 +877,7 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
          <p>The status of your support ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}") has been updated to <strong>${upperStatus}</strong>.</p>
          <p>Please log in to your dashboard support center to review the status change and join the discussion.</p>`,
         "View Support Ticket",
-        `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+        `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`,
       );
 
       await sendEmail({
@@ -873,7 +897,11 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
   // Socket broadcast of status change
   try {
     const io = getIO();
-    io.to(ticketId).emit("ticket-status-updated", { ticketId: ticket.ticketId, id: ticketId, status: upperStatus });
+    io.to(ticketId).emit("ticket-status-updated", {
+      ticketId: ticket.ticketId,
+      id: ticketId,
+      status: upperStatus,
+    });
   } catch (error) {
     console.error("Failed to emit ticket-status-updated socket event:", error);
   }
