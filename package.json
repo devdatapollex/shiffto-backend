@@ -19,7 +19,8 @@
     "seed:steps": "tsx prisma/seeds/step-definitions.ts",
     "seed:shipments": "tsx prisma/seeds/shipments.ts",
     "seed:trips": "tsx prisma/seeds/trips.ts",
-    "seed:restricted-items": "tsx prisma/seeds/restricted-items.ts"
+    "seed:restricted-items": "tsx prisma/seeds/restricted-items.ts",
+    "sync:trip-statuses": "tsx src/scripts/sync-trip-statuses.ts"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

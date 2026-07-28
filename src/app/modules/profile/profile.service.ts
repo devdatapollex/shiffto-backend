@@ -232,7 +232,7 @@ const getAnalytics = async (userId: string) => {
   });
 
   const activeTrips = await prisma.trip.count({
-    where: { userId, status: "ACTIVE" },
+    where: { userId, status: { in: ["ACTIVE", "IN_TRANSIT", "ARRIVED"] } },
   });
 
   const completedTrips = await prisma.trip.count({

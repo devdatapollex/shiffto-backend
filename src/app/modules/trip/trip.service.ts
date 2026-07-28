@@ -139,7 +139,11 @@ const getTrips = async (query: Record<string, unknown>, user: User) => {
           image: true,
         },
       },
-      shipments: true,
+      shipments: {
+        include: {
+          shipmentSteps: true,
+        },
+      },
     },
   });
 
@@ -163,6 +167,7 @@ const getTripById = async (id: string, user: User) => {
       shipments: {
         include: {
           category: true,
+          shipmentSteps: true,
           user: {
             select: {
               id: true,
@@ -207,12 +212,63 @@ const updateTrip = async (id: string, data: any, user: User) => {
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
   }
 
-  // Edit allowed ONLY before accepting any shipment
-  if (trip.shipments.length > 0) {
+  const { status, ...detailFields } = data;
+  const isUpdatingDetails = Object.keys(detailFields).length > 0;
+
+  // Edit of trip details allowed ONLY before accepting any shipment
+  if (isUpdatingDetails && trip.shipments.length > 0) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       "Cannot update trip details after accepting shipments",
     );
+  }
+
+  if (status && status !== trip.status) {
+    if (status === "IN_TRANSIT") {
+      if (trip.status === "ARRIVED") {
+        const arrivedStep = await prisma.shipmentStep.findFirst({
+          where: {
+            shipment: { tripId: id },
+            stage: "ARRIVED_AT_DESTINATION",
+            completedAt: { not: null },
+          },
+        });
+        if (arrivedStep) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            "Cannot revert trip status to IN_TRANSIT after shipments have arrived at destination",
+          );
+        }
+      } else if (trip.status !== "ACTIVE") {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Only active or arrived trips can be moved to in transit",
+        );
+      }
+    } else if (status === "ARRIVED") {
+      if (trip.status !== "ACTIVE" && trip.status !== "IN_TRANSIT") {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Only active or in transit trips can be marked as arrived",
+        );
+      }
+    } else if (status === "ACTIVE") {
+      if (trip.status === "IN_TRANSIT" || trip.status === "ARRIVED") {
+        const checkedInStep = await prisma.shipmentStep.findFirst({
+          where: {
+            shipment: { tripId: id },
+            stage: "CHECKED_IN",
+            completedAt: { not: null },
+          },
+        });
+        if (checkedInStep) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            "Cannot revert trip status to ACTIVE after shipments have been checked in",
+          );
+        }
+      }
+    }
   }
 
   const finalFromCountry =
@@ -255,7 +311,10 @@ const updateTrip = async (id: string, data: any, user: User) => {
     include: { shipments: true },
   });
 
-  if (data.cabinBagCapacity !== undefined || data.checkInBagCapacity !== undefined) {
+  if (
+    data.cabinBagCapacity !== undefined ||
+    data.checkInBagCapacity !== undefined
+  ) {
     await OfferService.expireIneligibleOffersForTrip(id);
   }
 

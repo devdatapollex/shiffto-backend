@@ -120,7 +120,7 @@ const getAdminAnalytics = async () => {
     prisma.shipment.count({ where: { status: "DELIVERED" } }),
     prisma.trip.count(),
     prisma.trip.count({
-      where: { status: { in: ["UPCOMING", "PENDING", "APPROVED"] } },
+      where: { status: { in: ["ACTIVE", "IN_TRANSIT", "ARRIVED"] } },
     }),
     prisma.trip.count({ where: { status: "COMPLETED" } }),
     prisma.kyc.count({ where: { status: "PENDING" } }),
