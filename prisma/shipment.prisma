@@ -131,3 +131,14 @@ model Offer {
   @@index([travellerId])
   @@map("offers")
 }
+
+model RestrictedItem {
+  id          String   @id @default(uuid(7))
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("restricted_items")
+}
