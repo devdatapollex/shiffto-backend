@@ -381,9 +381,10 @@ const getAnalytics = async (userId: string) => {
       flightDate: t.flightDate,
       flightTime: t.flightTime,
       airportArrivalTime: t.airportArrivalTime,
-      totalCapacity: (t.cabinBagCapacity || 0) + (t.checkInBagCapacity || 0),
-      remainingCapacity:
-        (t.remainingCabinCapacity || 0) + (t.remainingCheckInCapacity || 0),
+      cabinBagCapacity: t.cabinBagCapacity || 0,
+      checkInBagCapacity: t.checkInBagCapacity || 0,
+      remainingCabinCapacity: t.remainingCabinCapacity || 0,
+      remainingCheckInCapacity: t.remainingCheckInCapacity || 0,
       shipmentsCount: t._count?.shipments || 0,
       createdAt: t.createdAt,
     })),

@@ -27,6 +27,54 @@ const expireStaleOffers = async (shipmentId?: string) => {
   });
 };
 
+const expireIneligibleOffersForTrip = async (
+  tripId: string,
+  tx?: any,
+) => {
+  const db = tx || prisma;
+  const trip = await db.trip.findUnique({
+    where: { id: tripId },
+  });
+
+  if (!trip) return;
+
+  const pendingOffers = await db.offer.findMany({
+    where: {
+      tripId,
+      status: { in: [OfferStatus.PENDING, OfferStatus.PAYMENT_CANCELED] },
+    },
+    include: { shipment: true },
+  });
+
+  for (const offer of pendingOffers) {
+    const weight = offer.shipment.weight;
+    let isExceeded = false;
+    if (offer.bagType === "cabin" && trip.remainingCabinCapacity < weight) {
+      isExceeded = true;
+    } else if (
+      offer.bagType === "checkIn" &&
+      trip.remainingCheckInCapacity < weight
+    ) {
+      isExceeded = true;
+    }
+
+    if (isExceeded) {
+      await db.offer.update({
+        where: { id: offer.id },
+        data: { status: OfferStatus.EXPIRED },
+      });
+
+      await db.notification.create({
+        data: {
+          userId: offer.shipment.userId,
+          title: "Offer Expired",
+          message: `Your received offer for shipment "${offer.shipment.itemName}" has expired because the traveler's bag capacity for this trip is full.`,
+        },
+      });
+    }
+  }
+};
+
 const createOffer = async (
   payload: z.infer<typeof OfferValidation.createOfferSchema>,
   user: User,
@@ -264,28 +312,19 @@ const getReceivedOffers = async (user: User) => {
     orderBy: { createdAt: "desc" },
   });
 
-  return offers;
+  return offers.filter((offer) => {
+    if (offer.bagType === "cabin") {
+      return offer.trip.remainingCabinCapacity >= offer.shipment.weight;
+    } else if (offer.bagType === "checkIn") {
+      return offer.trip.remainingCheckInCapacity >= offer.shipment.weight;
+    }
+    return true;
+  });
 };
 
 const getReceivedOffersCount = async (user: User) => {
-  await expireStaleOffers();
-
-  const count = await prisma.offer.count({
-    where: {
-      shipment: {
-        userId: user.id,
-      },
-      status: {
-        in: [
-          OfferStatus.PENDING,
-          OfferStatus.PAYMENT_PENDING,
-          OfferStatus.PAYMENT_CANCELED,
-        ],
-      },
-    },
-  });
-
-  return { count };
+  const offers = await getReceivedOffers(user);
+  return { count: offers.length };
 };
 
 const getSentOffers = async (user: User) => {
@@ -653,4 +692,5 @@ export const OfferService = {
   acceptOffer,
   cancelCheckout,
   rejectOffer,
+  expireIneligibleOffersForTrip,
 };

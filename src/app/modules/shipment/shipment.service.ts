@@ -388,9 +388,10 @@ const getShipmentDetails = async (id: string, user: User) => {
         flightTime: trip.flightTime,
         airportArrivalTime: trip.airportArrivalTime,
         status: trip.status,
-        totalCapacity: trip.cabinBagCapacity + trip.checkInBagCapacity,
-        remainingCapacity:
-          trip.remainingCabinCapacity + trip.remainingCheckInCapacity,
+        cabinBagCapacity: trip.cabinBagCapacity,
+        checkInBagCapacity: trip.checkInBagCapacity,
+        remainingCabinCapacity: trip.remainingCabinCapacity,
+        remainingCheckInCapacity: trip.remainingCheckInCapacity,
         user: trip.user,
       };
     }

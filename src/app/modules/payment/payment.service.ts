@@ -10,6 +10,7 @@ import {
   ShipmentStatus,
 } from "../../../generated/prisma/enums";
 import { ShipmentStepService } from "../shipment/shipment-step.service";
+import { OfferService } from "../offer/offer.service";
 
 const getSenderPaymentsSummary = async (userId: string) => {
   const transactions = await prisma.paymentTransaction.findMany({
@@ -187,7 +188,10 @@ const handlePaymentSuccess = async (
       tx,
     );
 
-    // 6. Notify traveler & sender
+    // 6. Expire any other pending offers on this trip that no longer fit in remaining capacity
+    await OfferService.expireIneligibleOffersForTrip(paymentTx.offer.tripId, tx);
+
+    // 7. Notify traveler & sender
     await tx.notification.create({
       data: {
         userId: paymentTx.travellerId,
