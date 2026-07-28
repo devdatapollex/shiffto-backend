@@ -41,4 +41,6 @@ router.post(
   ProfileController.deleteAccount,
 );
 
+router.post("/abort-signup", ProfileController.abortSignup);
+
 export const ProfileRoutes = router;

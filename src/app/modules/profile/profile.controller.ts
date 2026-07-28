@@ -109,6 +109,20 @@ const getShipmentChart = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const abortSignup = catchAsync(async (req: Request, res: Response) => {
+  const email = (req.body?.email ||
+    req.query?.email ||
+    req.user?.email) as string;
+  const result = await ProfileService.abortSignup(email);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Signup aborted and unverified account deleted successfully",
+    data: result,
+  });
+});
+
 export const ProfileController = {
   getProfile,
   updateProfile,
@@ -116,6 +130,7 @@ export const ProfileController = {
   submitKyc,
   deactivateAccount,
   deleteAccount,
+  abortSignup,
   getAnalytics,
   getRevenueChart,
   getShipmentChart,

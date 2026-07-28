@@ -10,6 +10,7 @@ import {
   ShipmentStatus,
 } from "../../../generated/prisma/enums";
 import { ShipmentStepService } from "../shipment/shipment-step.service";
+import { OfferService } from "../offer/offer.service";
 
 const getSenderPaymentsSummary = async (userId: string) => {
   const transactions = await prisma.paymentTransaction.findMany({
@@ -98,13 +99,15 @@ const getTravelerEarningsSummary = async (userId: string) => {
   withdrawalRequests.forEach((req) => {
     if (req.status === WithdrawalStatus.PENDING) {
       awaitingPayout += req.amount;
-      totalWithdrawn += req.amount;
     } else if (req.status === WithdrawalStatus.APPROVED) {
       totalWithdrawn += req.amount;
     }
   });
 
-  const availableForWithdrawal = Math.max(0, totalEarnings - totalWithdrawn);
+  const availableForWithdrawal = Math.max(
+    0,
+    totalEarnings - totalWithdrawn - awaitingPayout,
+  );
 
   return {
     stats: {
@@ -114,6 +117,7 @@ const getTravelerEarningsSummary = async (userId: string) => {
       awaitingPayout,
       disputeAmount: 0,
       availableForWithdrawal,
+      totalWithdrawn,
     },
     earningsHistory: transactions,
     withdrawalHistory: withdrawalRequests,
@@ -184,7 +188,10 @@ const handlePaymentSuccess = async (
       tx,
     );
 
-    // 6. Notify traveler & sender
+    // 6. Expire any other pending offers on this trip that no longer fit in remaining capacity
+    await OfferService.expireIneligibleOffersForTrip(paymentTx.offer.tripId, tx);
+
+    // 7. Notify traveler & sender
     await tx.notification.create({
       data: {
         userId: paymentTx.travellerId,
@@ -411,8 +418,7 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
       tx.commissionAmount > 0
         ? tx.commissionAmount
         : tx.grossAmount * (tx.commissionRate || 0.3);
-    const net =
-      tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commission;
+    const net = tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commission;
 
     if (
       tx.status === PaymentStatus.PENDING_RELEASE ||

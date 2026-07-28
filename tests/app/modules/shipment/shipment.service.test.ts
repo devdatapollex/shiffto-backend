@@ -780,8 +780,10 @@ describe("ShipmentService", () => {
         expect.objectContaining({
           id: "trip-1",
           flightNumber: "TR123",
-          totalCapacity: 30,
-          remainingCapacity: 20,
+          cabinBagCapacity: 10,
+          checkInBagCapacity: 20,
+          remainingCabinCapacity: 5,
+          remainingCheckInCapacity: 15,
         }),
       );
     });

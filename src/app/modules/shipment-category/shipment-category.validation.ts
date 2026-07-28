@@ -10,7 +10,8 @@ const createCategorySchema = z.object({
   maxWeight: z
     .number({ error: "Max weight must be a number" })
     .positive({ error: "Max weight must be a positive number" })
-    .optional(),
+    .optional()
+    .nullable(),
   minPrice: z
     .number({
       error: (iss) =>
@@ -22,12 +23,14 @@ const createCategorySchema = z.object({
   maxPrice: z
     .number({ error: "Max price must be a number" })
     .positive({ error: "Max price must be a positive number" })
-    .optional(),
+    .optional()
+    .nullable(),
   maxQuantity: z
     .number({ error: "Max quantity must be a number" })
     .int({ error: "Max quantity must be a whole number" })
     .positive({ error: "Max quantity must be at least 1" })
-    .optional(),
+    .optional()
+    .nullable(),
 });
 
 const updateCategorySchema = z.object({
@@ -42,7 +45,8 @@ const updateCategorySchema = z.object({
   maxWeight: z
     .number({ error: "Max weight must be a number" })
     .positive({ error: "Max weight must be a positive number" })
-    .optional(),
+    .optional()
+    .nullable(),
   minPrice: z
     .number({ error: "Minimum price must be a number" })
     .positive({ error: "Minimum price must be a positive number" })
@@ -50,12 +54,14 @@ const updateCategorySchema = z.object({
   maxPrice: z
     .number({ error: "Max price must be a number" })
     .positive({ error: "Max price must be a positive number" })
-    .optional(),
+    .optional()
+    .nullable(),
   maxQuantity: z
     .number({ error: "Max quantity must be a number" })
     .int({ error: "Max quantity must be a whole number" })
     .positive({ error: "Max quantity must be at least 1" })
-    .optional(),
+    .optional()
+    .nullable(),
 });
 
 export const ShipmentCategoryValidation = {
