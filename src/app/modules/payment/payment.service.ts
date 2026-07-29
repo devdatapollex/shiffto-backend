@@ -11,6 +11,7 @@ import {
 } from "../../../generated/prisma/enums";
 import { ShipmentStepService } from "../shipment/shipment-step.service";
 import { OfferService } from "../offer/offer.service";
+import { NotificationService } from "../notification/notification.service";
 
 const getSenderPaymentsSummary = async (userId: string) => {
   const transactions = await prisma.paymentTransaction.findMany({
@@ -192,12 +193,10 @@ const handlePaymentSuccess = async (
     await OfferService.expireIneligibleOffersForTrip(paymentTx.offer.tripId, tx);
 
     // 7. Notify traveler & sender
-    await tx.notification.create({
-      data: {
-        userId: paymentTx.travellerId,
-        title: "Payment Received in Escrow",
-        message: `Payment of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment.itemName}" is held in escrow. You may now pick up the item.`,
-      },
+    await NotificationService.createNotification({
+      userId: paymentTx.travellerId,
+      title: "Payment Received in Escrow",
+      message: `Payment of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment.itemName}" is held in escrow. You may now pick up the item.`,
     });
 
     return updatedPaymentTx;
@@ -293,12 +292,10 @@ const releasePayment = async (transactionId: string, adminUser: User) => {
       },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: paymentTx.travellerId,
-        title: "Earnings Released",
-        message: `Your earnings of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment.itemName}" have been verified and released!`,
-      },
+    await NotificationService.createNotification({
+      userId: paymentTx.travellerId,
+      title: "Earnings Released",
+      message: `Your earnings of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment.itemName}" have been verified and released!`,
     });
 
     return updated;

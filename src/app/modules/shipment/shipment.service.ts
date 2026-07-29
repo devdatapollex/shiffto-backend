@@ -7,6 +7,7 @@ import { fileUploader } from "../../helper/fileUploader";
 import z from "zod";
 import { User } from "../../lib/auth";
 import { ShipmentOtpService } from "./shipment-otp.service";
+import { notifyAvailableShipmentsCountUpdated } from "../../lib/socket";
 
 const cleanupOrphanPhotos = async (oldUrls: string[], newUrls: string[]) => {
   const removedUrls = oldUrls.filter((url) => !newUrls.includes(url));
@@ -113,10 +114,14 @@ const createShipment = async (
       })),
     });
 
-    return tx.shipment.findUnique({
+    const createdShipment = await tx.shipment.findUnique({
       where: { id: shipment.id },
       include: { category: true },
     });
+
+    notifyAvailableShipmentsCountUpdated();
+
+    return createdShipment;
   });
 
   return result;

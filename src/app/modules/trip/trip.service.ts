@@ -7,6 +7,8 @@ import { paginationHelpers } from "../../helper/paginationHelpers";
 import config from "../../../config";
 import { ShipmentStatus } from "../../../generated/prisma/enums";
 import { OfferService } from "../offer/offer.service";
+import { NotificationService } from "../notification/notification.service";
+import { notifyAdminCountsUpdated } from "../../lib/socket";
 
 const createTrip = async (data: any, user: User) => {
   if (data.fromCountry.toLowerCase() === data.toCountry.toLowerCase()) {
@@ -39,6 +41,7 @@ const createTrip = async (data: any, user: User) => {
     },
   });
 
+  notifyAdminCountsUpdated();
   return result;
 };
 
@@ -387,12 +390,10 @@ const verifyTrip = async (
     ? `Your flight trip from ${trip.fromCountry} to ${trip.toCountry} on ${trip.flightDate.toDateString()} has been approved and is now active.`
     : `Your flight trip from ${trip.fromCountry} to ${trip.toCountry} on ${trip.flightDate.toDateString()} was rejected. Reason: ${rejectionReason}`;
 
-  await prisma.notification.create({
-    data: {
-      userId: trip.userId,
-      title: notificationTitle,
-      message: notificationMessage,
-    },
+  await NotificationService.createNotification({
+    userId: trip.userId,
+    title: notificationTitle,
+    message: notificationMessage,
   });
 
   // Send Email Notification
@@ -511,6 +512,7 @@ const verifyTrip = async (
     console.error("Failed to send verification email:", error);
   }
 
+  notifyAdminCountsUpdated();
   return result;
 };
 

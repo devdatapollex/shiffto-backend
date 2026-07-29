@@ -1,6 +1,7 @@
 import prisma from "../../lib/prisma";
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
+import { emitToUser } from "../../lib/socket";
 
 const getMyNotifications = async (userId: string) => {
   const result = await prisma.notification.findMany({
@@ -9,6 +10,24 @@ const getMyNotifications = async (userId: string) => {
     take: 50, // limit to latest 50 notifications
   });
   return result;
+};
+
+const createNotification = async (data: {
+  userId: string;
+  title: string;
+  message: string;
+}) => {
+  const notification = await prisma.notification.create({
+    data,
+  });
+
+  try {
+    emitToUser(data.userId, "notification:new", notification);
+  } catch (error) {
+    console.error("Failed to emit real-time notification socket event:", error);
+  }
+
+  return notification;
 };
 
 const markAsRead = async (userId: string, notificationId: string) => {
@@ -45,6 +64,7 @@ const markAllAsRead = async (userId: string) => {
 
 export const NotificationService = {
   getMyNotifications,
+  createNotification,
   markAsRead,
   markAllAsRead,
 };

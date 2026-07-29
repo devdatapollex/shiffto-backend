@@ -11,6 +11,10 @@ export interface ServerToClientEvents {
   "presence:update": (data: { userId: string; isOnline: boolean }) => void;
   "user:joined-room": (data: { room: string }) => void;
   "user:left-room": (data: { room: string }) => void;
+  "notification:new": (notification: any) => void;
+  "admin-counts:updated": () => void;
+  "offers-count:updated": () => void;
+  "available-shipments-count:updated": () => void;
   error: (data: { message: string; code?: string }) => void;
 }
 
