@@ -69,19 +69,19 @@ export const initSocket = (server: HttpServer) => {
         );
       }
 
-      // 3. Verify user in database
-      const dbUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-      });
+      // 3. Check user deactivation state and attach to socket
+      const user = session.user as unknown as User & {
+        isDeactivated?: boolean;
+      };
 
-      if (!dbUser || dbUser.isDeactivated) {
+      if (user.isDeactivated) {
         return next(
           new Error("Authentication error: User inactive or not found"),
         );
       }
 
       // 4. Attach authenticated user to socket data
-      socket.data.user = dbUser as unknown as User;
+      socket.data.user = user as unknown as User;
       next();
     } catch (err) {
       console.error("Socket authentication error:", err);
