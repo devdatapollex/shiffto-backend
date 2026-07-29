@@ -6,7 +6,8 @@ import {
   ShipmentStatus,
   shipmentStepStage,
 } from "../../../generated/prisma/enums";
-import { emitToRoom } from "../../lib/socket";
+import { emitToRoom, notifyAdminCountsUpdated } from "../../lib/socket";
+import { NotificationService } from "../notification/notification.service";
 
 // 3 days in milliseconds
 const DISPUTE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
@@ -357,6 +358,25 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
     data: { ticketId: formattedTicketId },
   });
 
+  // Notify Admins of new support ticket
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: "admin", isDeactivated: false },
+      select: { id: true },
+    });
+
+    for (const adminUser of admins) {
+      await NotificationService.createNotification({
+        userId: adminUser.id,
+        title: `New Support Ticket: ${formattedTicketId}`,
+        message: `A new ticket "${title.trim()}" was created in ${upperCategory}.`,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to send admin notifications for new ticket", err);
+  }
+
+  notifyAdminCountsUpdated();
   return updatedTicket;
 };
 
@@ -519,13 +539,11 @@ const addComment = async (
       });
       if (!targetUser) continue;
 
-      // 1. Create in-app notification
-      await prisma.notification.create({
-        data: {
-          userId: targetUserId,
-          title: `Reply on ticket ${ticket.ticketId}`,
-          message: `Support team has replied to your ticket: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`,
-        },
+      // 1. Create in-app notification & emit real-time socket event
+      await NotificationService.createNotification({
+        userId: targetUserId,
+        title: `Reply on ticket ${ticket.ticketId}`,
+        message: `Support team has replied to your ticket: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`,
       });
 
       // 2. Send email notification
@@ -556,6 +574,36 @@ const addComment = async (
           );
         }
       }
+    }
+  } else {
+    // Notify assigned Admin (or all Admins if unassigned) when regular User comments
+    try {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+      const senderName = currentUser?.name || "A user";
+
+      const notifyAdminIds: string[] = [];
+      if (ticket.assigneeId) {
+        notifyAdminIds.push(ticket.assigneeId);
+      } else {
+        const admins = await prisma.user.findMany({
+          where: { role: "admin", isDeactivated: false },
+          select: { id: true },
+        });
+        admins.forEach((a) => notifyAdminIds.push(a.id));
+      }
+
+      for (const adminId of notifyAdminIds) {
+        await NotificationService.createNotification({
+          userId: adminId,
+          title: `User Reply on Ticket ${ticket.ticketId}`,
+          message: `${senderName} replied on ticket ${ticket.ticketId}: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to notify admins on user ticket comment", err);
     }
   }
 
@@ -666,12 +714,10 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
 
   // Notify user if closed by Admin
   if (userRole === "admin") {
-    await prisma.notification.create({
-      data: {
-        userId: ticket.userId,
-        title: `Ticket Closed: ${ticket.ticketId}`,
-        message: `Your ticket "${ticket.title}" has been closed by the support team.`,
-      },
+    await NotificationService.createNotification({
+      userId: ticket.userId,
+      title: `Ticket Closed: ${ticket.ticketId}`,
+      message: `Your ticket "${ticket.title}" has been closed by the support team.`,
     });
 
     if (ticket.user?.email) {
@@ -824,6 +870,17 @@ const assignTicket = async (ticketId: string, assigneeId: string) => {
     },
   });
 
+  // Notify assigned Admin
+  try {
+    await NotificationService.createNotification({
+      userId: assigneeId,
+      title: `Ticket Assigned: ${ticket.ticketId}`,
+      message: `You have been assigned to support ticket "${ticket.title}".`,
+    });
+  } catch (err) {
+    console.error("Failed to send notification on ticket assignment", err);
+  }
+
   return updatedTicket;
 };
 
@@ -859,12 +916,10 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
   });
 
   // Notify User on status change
-  await prisma.notification.create({
-    data: {
-      userId: ticket.userId,
-      title: `Ticket status updated: ${ticket.ticketId}`,
-      message: `Your ticket status is now "${upperStatus}".`,
-    },
+  await NotificationService.createNotification({
+    userId: ticket.userId,
+    title: `Ticket status updated: ${ticket.ticketId}`,
+    message: `Your ticket status is now "${upperStatus}".`,
   });
 
   if (ticket.user?.email) {

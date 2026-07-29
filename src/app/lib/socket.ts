@@ -145,3 +145,29 @@ export const emitToUser = <K extends keyof ServerToClientEvents>(
     );
   }
 };
+
+/**
+ * Helper to notify all connected admins that sidebar counts need invalidation
+ */
+export const notifyAdminCountsUpdated = () => {
+  emitToRoom("admin", "admin-counts:updated");
+};
+
+/**
+ * Helper to notify a specific user that their received offers count changed
+ */
+export const notifyOffersCountUpdated = (userId: string) => {
+  emitToUser(userId, "offers-count:updated");
+};
+
+/**
+ * Helper to notify all clients that available shipments count changed
+ */
+export const notifyAvailableShipmentsCountUpdated = () => {
+  if (io) {
+    console.log(
+      `📢 [Socket Broadcast] Emitting 'available-shipments-count:updated' globally`,
+    );
+    (io as any).emit("available-shipments-count:updated");
+  }
+};
