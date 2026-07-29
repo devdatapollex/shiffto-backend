@@ -13,20 +13,20 @@ http:
     type: json
     data: |-
       {
-        "itemName": "Laptop",
+        "itemName": "Demo Shipment 6",
         "weight": 5,
         "quantity": 2,
-        "description": "A laptop for international shipping",
-        "itemPhotos": ["https://placehold.co/600x400?text=Item+Photo+Placeholder"],
+        "description": "Demo description 6",
+        "itemPhotos": ["http://localhost:5000/uploads/1785128577092-wallpaperflare.com_wallpaper.jpg"],
         "instructions": "Handle with care",
-        "fromCountry": "AR",
-        "toCountry": "BD",
-        "pricePerKg": 100,
+        "fromCountry": "BD",
+        "toCountry": "QA",
+        "pricePerKg": 15,
         "receiverName": "John Doe",
         "receiverPhone": "+1234567890",
         "receiverAddress": "123 Main St, City",
-        "categoryId": "019f5fd8-977a-73c8-b7f6-b050107ab379",
-        "otp": "723294"
+        "categoryId": "019f9d92-ad60-77ab-988d-6487918e4acc",
+        "otp": "267748"
       }
   auth: inherit
 
