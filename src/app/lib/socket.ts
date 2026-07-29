@@ -13,6 +13,7 @@ import {
 } from "../socket/types";
 import { registerPresenceHandlers } from "../socket/handlers/presence.socket";
 import { registerTicketHandlers } from "../socket/handlers/ticket.socket";
+import { registerShipmentChatHandlers } from "../socket/handlers/shipment-chat.socket";
 
 let io: SocketIOServer<
   ClientToServerEvents,
@@ -94,6 +95,7 @@ export const initSocket = (server: HttpServer) => {
     // Register modular handlers
     registerPresenceHandlers(io!, socket);
     registerTicketHandlers(io!, socket);
+    registerShipmentChatHandlers(io!, socket);
   });
 
   return io;
