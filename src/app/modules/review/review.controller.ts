@@ -53,6 +53,41 @@ const getUserReviewStats = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getPendingReviewsCount = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const result = await ReviewService.getPendingReviewsCount(userId);
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Pending review count fetched successfully",
+      data: result,
+    });
+  },
+);
+
+const getPendingReviews = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const search = req.query.search ? String(req.query.search) : undefined;
+
+  const result = await ReviewService.getPendingReviews(userId, {
+    page,
+    limit,
+    search,
+  });
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Pending reviews fetched successfully",
+    meta: result.meta,
+    data: result.data,
+  });
+});
+
 const getUserReceivedReviews = catchAsync(
   async (req: Request, res: Response) => {
     const currentUserId = req.user!.id;
@@ -60,12 +95,14 @@ const getUserReceivedReviews = catchAsync(
     const userId = req.params.userId as string;
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
+    const search = req.query.search ? String(req.query.search) : undefined;
+    const rating = req.query.rating ? Number(req.query.rating) : undefined;
 
     const result = await ReviewService.getUserReceivedReviews(
       currentUserId,
       currentUserRole,
       userId,
-      { page, limit },
+      { page, limit, search, rating },
     );
 
     sendResponse(res, {
@@ -84,12 +121,14 @@ const getUserGivenReviews = catchAsync(async (req: Request, res: Response) => {
   const userId = req.params.userId as string;
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 10;
+  const search = req.query.search ? String(req.query.search) : undefined;
+  const rating = req.query.rating ? Number(req.query.rating) : undefined;
 
   const result = await ReviewService.getUserGivenReviews(
     currentUserId,
     currentUserRole,
     userId,
-    { page, limit },
+    { page, limit, search, rating },
   );
 
   sendResponse(res, {
@@ -105,6 +144,8 @@ export const ReviewController = {
   createReview,
   getShipmentReview,
   getUserReviewStats,
+  getPendingReviewsCount,
+  getPendingReviews,
   getUserReceivedReviews,
   getUserGivenReviews,
 };

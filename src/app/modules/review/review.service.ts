@@ -156,6 +156,111 @@ const getUserReviewStats = async (
   };
 };
 
+const getPendingReviewsCount = async (userId: string) => {
+  const count = await prisma.shipment.count({
+    where: {
+      status: "DELIVERED",
+      OR: [{ userId: userId }, { trip: { userId: userId } }],
+      reviews: {
+        none: {
+          reviewerId: userId,
+        },
+      },
+    },
+  });
+
+  return { count };
+};
+
+const getPendingReviews = async (
+  userId: string,
+  options: IReviewPaginationQuery,
+) => {
+  const { page, limit, skip } = paginationHelpers.calculatePagination(options);
+
+  const where: any = {
+    status: "DELIVERED",
+    OR: [{ userId: userId }, { trip: { userId: userId } }],
+    reviews: {
+      none: {
+        reviewerId: userId,
+      },
+    },
+  };
+
+  if (options.search) {
+    where.AND = [
+      {
+        OR: [
+          { itemName: { contains: options.search, mode: "insensitive" } },
+          { user: { name: { contains: options.search, mode: "insensitive" } } },
+          {
+            trip: {
+              user: { name: { contains: options.search, mode: "insensitive" } },
+            },
+          },
+        ],
+      },
+    ];
+  }
+
+  const total = await prisma.shipment.count({ where });
+
+  const shipments = await prisma.shipment.findMany({
+    where,
+    skip,
+    take: limit,
+    orderBy: { updatedAt: "desc" },
+    include: {
+      user: { select: { id: true, name: true, image: true } },
+      trip: {
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+        },
+      },
+    },
+  });
+
+  const totalPages = Math.ceil(total / limit);
+
+  const data = shipments.map((shipment) => {
+    const isSender = shipment.userId === userId;
+    const counterparty = isSender
+      ? {
+          id: shipment.trip?.user?.id || "",
+          name: shipment.trip?.user?.name || "Traveler",
+          image: shipment.trip?.user?.image || null,
+          role: "Traveler",
+        }
+      : {
+          id: shipment.user?.id || "",
+          name: shipment.user?.name || "Sender",
+          image: shipment.user?.image || null,
+          role: "Sender",
+        };
+
+    return {
+      id: shipment.id,
+      itemName: shipment.itemName,
+      fromCountry: shipment.fromCountry,
+      toCountry: shipment.toCountry,
+      deliveredAt: shipment.updatedAt,
+      isSender,
+      counterparty,
+    };
+  });
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages,
+    },
+    data,
+  };
+};
+
 const getUserReceivedReviews = async (
   currentUserId: string,
   currentUserRole: string,
@@ -174,7 +279,31 @@ const getUserReceivedReviews = async (
 
   const { page, limit, skip } = paginationHelpers.calculatePagination(options);
 
-  const where = { revieweeId: targetUserId };
+  const where: any = { revieweeId: targetUserId };
+
+  if (options.rating) {
+    where.rating = Number(options.rating);
+  }
+
+  if (options.search) {
+    where.AND = [
+      {
+        OR: [
+          { comment: { contains: options.search, mode: "insensitive" } },
+          {
+            reviewer: {
+              name: { contains: options.search, mode: "insensitive" },
+            },
+          },
+          {
+            shipment: {
+              itemName: { contains: options.search, mode: "insensitive" },
+            },
+          },
+        ],
+      },
+    ];
+  }
 
   const total = await prisma.review.count({ where });
 
@@ -220,7 +349,31 @@ const getUserGivenReviews = async (
 
   const { page, limit, skip } = paginationHelpers.calculatePagination(options);
 
-  const where = { reviewerId: targetUserId };
+  const where: any = { reviewerId: targetUserId };
+
+  if (options.rating) {
+    where.rating = Number(options.rating);
+  }
+
+  if (options.search) {
+    where.AND = [
+      {
+        OR: [
+          { comment: { contains: options.search, mode: "insensitive" } },
+          {
+            reviewee: {
+              name: { contains: options.search, mode: "insensitive" },
+            },
+          },
+          {
+            shipment: {
+              itemName: { contains: options.search, mode: "insensitive" },
+            },
+          },
+        ],
+      },
+    ];
+  }
 
   const total = await prisma.review.count({ where });
 
@@ -252,6 +405,8 @@ export const ReviewService = {
   createReview,
   getShipmentReview,
   getUserReviewStats,
+  getPendingReviewsCount,
+  getPendingReviews,
   getUserReceivedReviews,
   getUserGivenReviews,
 };
