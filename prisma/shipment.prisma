@@ -47,6 +47,7 @@ model Shipment {
   tickets            Ticket[]
   paymentTransaction PaymentTransaction?
   messages           ShipmentMessage[]
+  reviews            Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
