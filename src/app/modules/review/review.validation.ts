@@ -7,7 +7,10 @@ const createReviewZodSchema = z.object({
     .int("Rating must be an integer")
     .min(1, "Rating must be between 1 and 5")
     .max(5, "Rating must be between 1 and 5"),
-  comment: z.string().optional(),
+  comment: z
+    .string()
+    .max(500, "Comment cannot exceed 500 characters")
+    .optional(),
 });
 
 export const ReviewValidation = {
