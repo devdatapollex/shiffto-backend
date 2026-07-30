@@ -111,8 +111,15 @@ const sendShipmentMessage = async (
   userRole: string | undefined,
   payload: CreateMessageDto,
 ) => {
-  if (!payload.message || payload.message.trim() === "") {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Message text cannot be empty");
+  const hasAttachments =
+    Array.isArray(payload.attachments) && payload.attachments.length > 0;
+  const hasText = Boolean(payload.message && payload.message.trim() !== "");
+
+  if (!hasText && !hasAttachments) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Message text or attachment is required",
+    );
   }
 
   const shipment = await prisma.shipment.findUnique({
