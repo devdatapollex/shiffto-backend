@@ -16,6 +16,7 @@ import { AdminSettingRoutes } from "../modules/admin-setting/admin-setting.route
 import { AdminUserRoutes } from "../modules/admin-user/admin-user.route";
 import { RestrictedItemRoutes } from "../modules/restricted-item/restricted-item.route";
 import { ShipmentMessageRoutes } from "../modules/shipment-message/shipment-message.route";
+import { ReviewRoutes } from "../modules/review/review.route";
 
 const router = express.Router();
 
@@ -37,6 +38,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/admin/settings", route: AdminSettingRoutes },
   { path: "/admin-users", route: AdminUserRoutes },
   { path: "/restricted-items", route: RestrictedItemRoutes },
+  { path: "/reviews", route: ReviewRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

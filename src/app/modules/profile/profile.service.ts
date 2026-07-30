@@ -203,7 +203,6 @@ const getAnalytics = async (userId: string) => {
       name: true,
       email: true,
       image: true,
-      trustScore: true,
       commissionRate: true,
       kyc: { select: { status: true } },
     },
@@ -351,7 +350,6 @@ const getAnalytics = async (userId: string) => {
       name: user.name,
       email: user.email,
       image: user.image,
-      trustScore: user.trustScore,
       kycStatus: user.kyc?.status || "NOT_SUBMITTED",
     },
     stats: {
