@@ -14,6 +14,14 @@ router.post(
 );
 
 router.get(
+  "/pending/count",
+  authGuard(),
+  ReviewController.getPendingReviewsCount,
+);
+
+router.get("/pending", authGuard(), ReviewController.getPendingReviews);
+
+router.get(
   "/shipment/:shipmentId",
   authGuard(),
   ReviewController.getShipmentReview,

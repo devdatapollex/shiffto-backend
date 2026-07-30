@@ -7,4 +7,6 @@ export interface ICreateReviewPayload {
 export interface IReviewPaginationQuery {
   page?: number;
   limit?: number;
+  search?: string;
+  rating?: number;
 }
