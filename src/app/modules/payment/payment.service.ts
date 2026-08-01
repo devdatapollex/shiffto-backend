@@ -30,6 +30,7 @@ const getSenderPaymentsSummary = async (userId: string) => {
 
   let totalSpent = 0;
   let pendingAmount = 0;
+  let pendingRefundAmount = 0;
   let refundedAmount = 0;
   const disputeMoney = 0;
 
@@ -41,6 +42,8 @@ const getSenderPaymentsSummary = async (userId: string) => {
       tx.status === PaymentStatus.PENDING_RELEASE
     ) {
       pendingAmount += tx.grossAmount;
+    } else if (tx.status === PaymentStatus.PENDING_REFUND) {
+      pendingRefundAmount += tx.grossAmount;
     } else if (tx.status === PaymentStatus.REFUNDED) {
       refundedAmount += tx.grossAmount;
     }
@@ -50,6 +53,7 @@ const getSenderPaymentsSummary = async (userId: string) => {
     stats: {
       totalSpent,
       pendingAmount,
+      pendingRefundAmount,
       refundedAmount,
       disputeMoney,
     },
@@ -190,7 +194,10 @@ const handlePaymentSuccess = async (
     );
 
     // 6. Expire any other pending offers on this trip that no longer fit in remaining capacity
-    await OfferService.expireIneligibleOffersForTrip(paymentTx.offer.tripId, tx);
+    await OfferService.expireIneligibleOffersForTrip(
+      paymentTx.offer.tripId,
+      tx,
+    );
 
     // 7. Notify traveler & sender
     await NotificationService.createNotification({
@@ -302,6 +309,72 @@ const releasePayment = async (transactionId: string, adminUser: User) => {
   });
 };
 
+const markPaymentAsPendingRefund = async (
+  shipmentId: string,
+  reason: string,
+  dbTx?: Prisma.TransactionClient,
+) => {
+  const client = dbTx || prisma;
+
+  const paymentTx = await client.paymentTransaction.findUnique({
+    where: { shipmentId },
+    include: { shipment: true },
+  });
+
+  if (!paymentTx) return null;
+
+  if (
+    paymentTx.status === PaymentStatus.ESCROWED ||
+    paymentTx.status === PaymentStatus.PENDING_RELEASE
+  ) {
+    const primaryPaymentMethod =
+      (await client.paymentMethod.findFirst({
+        where: { userId: paymentTx.senderId, isPrimary: true },
+      })) ||
+      (await client.paymentMethod.findFirst({
+        where: { userId: paymentTx.senderId },
+        orderBy: { createdAt: "desc" },
+      }));
+
+    const refundMethodDetails = primaryPaymentMethod
+      ? {
+          id: primaryPaymentMethod.id,
+          type: primaryPaymentMethod.type,
+          accountName: primaryPaymentMethod.accountName,
+          accountNumber: primaryPaymentMethod.accountNumber,
+          bankName: primaryPaymentMethod.bankName,
+          branchName: primaryPaymentMethod.branchName,
+          routingNumber: primaryPaymentMethod.routingNumber,
+          cryptoAddress: primaryPaymentMethod.cryptoAddress,
+        }
+      : null;
+
+    const updated = await client.paymentTransaction.update({
+      where: { id: paymentTx.id },
+      data: {
+        status: PaymentStatus.PENDING_REFUND,
+        refundReason: reason,
+        refundMethodDetails: refundMethodDetails as any,
+      },
+    });
+
+    await NotificationService.createNotification({
+      userId: paymentTx.senderId,
+      title: "Refund Pending",
+      message: `Your payment of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment?.itemName || "item"}" is pending refund. Reason: ${reason}`,
+    });
+
+    return updated;
+  } else if (paymentTx.status === PaymentStatus.PENDING_PAYMENT) {
+    return client.paymentTransaction.update({
+      where: { id: paymentTx.id },
+      data: { status: PaymentStatus.FAILED },
+    });
+  }
+
+  return paymentTx;
+};
+
 interface GetAdminPaymentsQuery {
   page?: number;
   limit?: number;
@@ -407,6 +480,7 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
   let totalGrossVolume = 0;
   let totalEscrowed = 0;
   let totalPendingRelease = 0;
+  let totalPendingRefund = 0;
   let totalReleased = 0;
   let totalRefunded = 0;
 
@@ -418,23 +492,29 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
     const net = tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commission;
 
     if (
+      tx.status === PaymentStatus.ESCROWED ||
+      tx.status === PaymentStatus.PENDING_RELEASE ||
+      tx.status === PaymentStatus.RELEASED
+    ) {
+      totalGrossVolume += tx.grossAmount;
+    }
+
+    if (
       tx.status === PaymentStatus.PENDING_RELEASE ||
       tx.status === PaymentStatus.RELEASED
     ) {
       totalPlatformRevenue += commission;
-      totalGrossVolume += tx.grossAmount;
     }
 
     if (tx.status === PaymentStatus.ESCROWED) {
       totalEscrowed += tx.grossAmount;
     } else if (tx.status === PaymentStatus.PENDING_RELEASE) {
       totalPendingRelease += tx.grossAmount;
+    } else if (tx.status === PaymentStatus.PENDING_REFUND) {
+      totalPendingRefund += tx.grossAmount;
     } else if (tx.status === PaymentStatus.RELEASED) {
       totalReleased += net;
-    } else if (
-      tx.status === PaymentStatus.REFUNDED ||
-      tx.status === PaymentStatus.FAILED
-    ) {
+    } else if (tx.status === PaymentStatus.REFUNDED) {
       totalRefunded += tx.grossAmount;
     }
   });
@@ -461,6 +541,7 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
       totalGrossVolume,
       totalEscrowed,
       totalPendingRelease,
+      totalPendingRefund,
       totalReleased,
       totalRefunded,
       estimatedCommission: totalPlatformRevenue,
@@ -475,11 +556,145 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
   };
 };
 
+const getPendingRefunds = async (query: GetAdminPaymentsQuery) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const whereConditions: Prisma.PaymentTransactionWhereInput = {
+    status: PaymentStatus.PENDING_REFUND,
+  };
+
+  if (query.search) {
+    const s = query.search.trim();
+    whereConditions.OR = [
+      { transactionId: { contains: s, mode: "insensitive" } },
+      { shipment: { itemName: { contains: s, mode: "insensitive" } } },
+      { sender: { name: { contains: s, mode: "insensitive" } } },
+      { sender: { email: { contains: s, mode: "insensitive" } } },
+    ];
+  }
+
+  const transactions = await prisma.paymentTransaction.findMany({
+    where: whereConditions,
+    skip,
+    take: limit,
+    orderBy: { updatedAt: "desc" },
+    include: {
+      shipment: {
+        select: {
+          id: true,
+          itemName: true,
+          status: true,
+          weight: true,
+        },
+      },
+      sender: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          image: true,
+          paymentMethods: true,
+        },
+      },
+      traveller: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  });
+
+  const total = await prisma.paymentTransaction.count({
+    where: whereConditions,
+  });
+
+  return {
+    meta: { page, limit, total },
+    data: transactions,
+  };
+};
+
+interface ProcessAdminRefundPayload {
+  refundTxnId: string;
+  adminNotes?: string;
+  proofPhotoUrl?: string;
+}
+
+const processAdminRefund = async (
+  transactionId: string,
+  payload: ProcessAdminRefundPayload,
+  adminUser: User,
+) => {
+  if (adminUser.role !== "admin") {
+    throw new ApiError(httpStatus.FORBIDDEN, "Only admin can process refunds");
+  }
+
+  if (!payload.refundTxnId || !payload.refundTxnId.trim()) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Refund transaction ID is required",
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const paymentTx = await tx.paymentTransaction.findFirst({
+      where: {
+        OR: [{ transactionId }, { id: transactionId }],
+      },
+      include: { shipment: true },
+    });
+
+    if (!paymentTx) {
+      throw new ApiError(httpStatus.NOT_FOUND, "Payment transaction not found");
+    }
+
+    if (paymentTx.status === PaymentStatus.REFUNDED) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Payment is already refunded");
+    }
+
+    if (paymentTx.status !== PaymentStatus.PENDING_REFUND) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Cannot process refund for transaction with status ${paymentTx.status}`,
+      );
+    }
+
+    const updated = await tx.paymentTransaction.update({
+      where: { id: paymentTx.id },
+      data: {
+        status: PaymentStatus.REFUNDED,
+        refundTxnId: payload.refundTxnId,
+        adminRefundNotes: payload.adminNotes,
+        ...(payload.proofPhotoUrl && { proofPhotoUrl: payload.proofPhotoUrl }),
+        refundedAt: new Date(),
+        refundedBy: adminUser.id,
+      },
+    });
+
+    await NotificationService.createNotification({
+      userId: paymentTx.senderId,
+      title: "Refund Processed",
+      message: `Your refund of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment?.itemName || "item"}" has been processed. Reference ID: ${payload.refundTxnId}`,
+    });
+
+    return updated;
+  });
+};
+
 export const PaymentService = {
   getSenderPaymentsSummary,
   getTravelerEarningsSummary,
   handlePaymentSuccess,
   handlePaymentFailureOrExpiration,
   releasePayment,
+  markPaymentAsPendingRefund,
   getAdminPayments,
+  getPendingRefunds,
+  processAdminRefund,
 };
