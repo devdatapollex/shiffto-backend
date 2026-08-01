@@ -5,9 +5,10 @@ import { User } from "../../lib/auth";
 import { sendEmail } from "../../lib/email";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 import config from "../../../config";
-import { ShipmentStatus } from "../../../generated/prisma/enums";
+import { ShipmentStatus, OfferStatus } from "../../../generated/prisma/enums";
 import { OfferService } from "../offer/offer.service";
 import { NotificationService } from "../notification/notification.service";
+import { PaymentService } from "../payment/payment.service";
 import { notifyAdminCountsUpdated } from "../../lib/socket";
 
 const createTrip = async (data: any, user: User) => {
@@ -327,7 +328,14 @@ const updateTrip = async (id: string, data: any, user: User) => {
 const cancelTrip = async (id: string, user: User) => {
   const trip = await prisma.trip.findUnique({
     where: { id },
-    include: { shipments: true },
+    include: {
+      shipments: {
+        include: {
+          shipmentSteps: true,
+          paymentTransaction: true,
+        },
+      },
+    },
   });
 
   if (!trip) {
@@ -339,20 +347,65 @@ const cancelTrip = async (id: string, user: User) => {
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
   }
 
-  // Cancel allowed ONLY before accepting any shipment
-  if (trip.shipments.length > 0) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Cannot cancel trip after accepting shipments",
-    );
+  if (trip.status === "CANCELLED") {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Trip is already cancelled");
   }
 
-  const result = await prisma.trip.update({
-    where: { id },
-    data: { status: "CANCELLED" },
-  });
+  // Check if ANY shipment under this trip has completed the PICKED_UP step
+  for (const shipment of trip.shipments) {
+    const pickedUpStep = shipment.shipmentSteps.find(
+      (step) => step.stage === "PICKED_UP" && step.completedAt !== null,
+    );
+    if (pickedUpStep) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Cannot cancel trip directly because one or more shipments have already been picked up. Please open a support ticket.",
+      );
+    }
+  }
 
-  return result;
+  // Perform bulk cancellation inside a transaction
+  return prisma.$transaction(async (tx) => {
+    const updatedTrip = await tx.trip.update({
+      where: { id },
+      data: { status: "CANCELLED" },
+    });
+
+    for (const shipment of trip.shipments) {
+      await tx.shipment.update({
+        where: { id: shipment.id },
+        data: { status: ShipmentStatus.CANCELED },
+      });
+
+      await PaymentService.markPaymentAsPendingRefund(
+        shipment.id,
+        `Trip (${trip.flightNumber}) canceled by traveler before pickup`,
+        tx,
+      );
+
+      await tx.offer.updateMany({
+        where: {
+          shipmentId: shipment.id,
+          status: {
+            in: [
+              OfferStatus.ACCEPTED,
+              OfferStatus.PENDING,
+              OfferStatus.PAYMENT_PENDING,
+            ],
+          },
+        },
+        data: { status: OfferStatus.EXPIRED },
+      });
+
+      await NotificationService.createNotification({
+        userId: shipment.userId,
+        title: "Trip Canceled",
+        message: `The traveler for your shipment "${shipment.itemName}" has canceled their trip. Any held payment is now pending refund.`,
+      });
+    }
+
+    return updatedTrip;
+  });
 };
 
 const verifyTrip = async (

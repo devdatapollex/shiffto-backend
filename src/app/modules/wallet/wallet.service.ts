@@ -1,7 +1,10 @@
 import prisma from "../../lib/prisma";
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
-import { PaymentMethodType } from "../../../generated/prisma/enums";
+import {
+  PaymentMethodType,
+  ShipmentStatus,
+} from "../../../generated/prisma/enums";
 
 export interface CreatePaymentMethodPayload {
   type: PaymentMethodType;
@@ -106,6 +109,28 @@ const deletePaymentMethod = async (userId: string, methodId: string) => {
 
   if (!method || method.userId !== userId) {
     throw new ApiError(httpStatus.NOT_FOUND, "Payment method not found");
+  }
+
+  const methodCount = await prisma.paymentMethod.count({
+    where: { userId },
+  });
+
+  if (methodCount <= 1) {
+    const undeliveredShipmentsCount = await prisma.shipment.count({
+      where: {
+        userId,
+        status: {
+          notIn: [ShipmentStatus.DELIVERED, ShipmentStatus.CANCELED],
+        },
+      },
+    });
+
+    if (undeliveredShipmentsCount > 0) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Cannot delete your only payment method while you have undelivered shipments.",
+      );
+    }
   }
 
   await prisma.paymentMethod.delete({ where: { id: methodId } });

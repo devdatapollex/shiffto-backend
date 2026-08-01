@@ -86,10 +86,38 @@ const getAdminPayments = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getPendingRefunds = catchAsync(async (req: Request, res: Response) => {
+  const result = await PaymentService.getPendingRefunds(req.query);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Pending refunds fetched successfully",
+    data: result,
+  });
+});
+
+const processAdminRefund = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user!;
+  const transactionId = req.params.transactionId as string;
+  const result = await PaymentService.processAdminRefund(
+    transactionId,
+    req.body,
+    user,
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Refund processed successfully",
+    data: result,
+  });
+});
+
 export const PaymentController = {
   getSenderSummary,
   getTravelerSummary,
   releasePayment,
   handleStripeWebhook,
   getAdminPayments,
+  getPendingRefunds,
+  processAdminRefund,
 };
