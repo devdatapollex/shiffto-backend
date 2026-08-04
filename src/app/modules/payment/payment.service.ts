@@ -543,6 +543,8 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
       commissionAmount: true,
       netAmount: true,
       commissionRate: true,
+      refundableAmount: true,
+      cancellationFeeAmount: true,
       status: true,
     },
   });
@@ -561,6 +563,9 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
         ? tx.commissionAmount
         : tx.grossAmount * (tx.commissionRate || 0.3);
     const net = tx.netAmount > 0 ? tx.netAmount : tx.grossAmount - commission;
+    const refundable =
+      tx.refundableAmount > 0 ? tx.refundableAmount : tx.grossAmount;
+    const cancellationFee = tx.cancellationFeeAmount || 0;
 
     if (
       tx.status === PaymentStatus.ESCROWED ||
@@ -575,6 +580,11 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
       tx.status === PaymentStatus.RELEASED
     ) {
       totalPlatformRevenue += commission;
+    } else if (
+      tx.status === PaymentStatus.PENDING_REFUND ||
+      tx.status === PaymentStatus.REFUNDED
+    ) {
+      totalPlatformRevenue += cancellationFee;
     }
 
     if (tx.status === PaymentStatus.ESCROWED) {
@@ -582,11 +592,11 @@ const getAdminPayments = async (query: GetAdminPaymentsQuery) => {
     } else if (tx.status === PaymentStatus.PENDING_RELEASE) {
       totalPendingRelease += tx.grossAmount;
     } else if (tx.status === PaymentStatus.PENDING_REFUND) {
-      totalPendingRefund += tx.grossAmount;
+      totalPendingRefund += refundable;
     } else if (tx.status === PaymentStatus.RELEASED) {
       totalReleased += net;
     } else if (tx.status === PaymentStatus.REFUNDED) {
-      totalRefunded += tx.grossAmount;
+      totalRefunded += refundable;
     }
   });
 
