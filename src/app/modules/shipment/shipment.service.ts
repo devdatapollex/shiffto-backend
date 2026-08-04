@@ -484,6 +484,21 @@ const cancelShipment = async (id: string, user: User) => {
       tx,
     );
 
+    if (shipment.tripId && shipment.bagType) {
+      const weight = shipment.weight;
+      if (shipment.bagType === "cabin") {
+        await tx.trip.update({
+          where: { id: shipment.tripId },
+          data: { remainingCabinCapacity: { increment: weight } },
+        });
+      } else {
+        await tx.trip.update({
+          where: { id: shipment.tripId },
+          data: { remainingCheckInCapacity: { increment: weight } },
+        });
+      }
+    }
+
     await tx.offer.updateMany({
       where: {
         shipmentId: id,
