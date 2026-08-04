@@ -47,4 +47,11 @@ router.post(
   PaymentController.releasePayment,
 );
 
+// Admin Cancel Shipment with Custom Fee
+router.post(
+  "/admin/shipments/:id/cancel",
+  authGuard({ adminOnly: true }),
+  PaymentController.adminCancelShipment,
+);
+
 export const PaymentRoutes = router;

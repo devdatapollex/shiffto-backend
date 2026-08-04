@@ -112,6 +112,22 @@ const processAdminRefund = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const adminCancelShipment = catchAsync(async (req: Request, res: Response) => {
+  const user = req.user!;
+  const shipmentId = req.params.id as string;
+  const result = await PaymentService.adminCancelShipment(
+    shipmentId,
+    req.body,
+    user,
+  );
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Shipment canceled by admin successfully",
+    data: result,
+  });
+});
+
 export const PaymentController = {
   getSenderSummary,
   getTravelerSummary,
@@ -120,4 +136,5 @@ export const PaymentController = {
   getAdminPayments,
   getPendingRefunds,
   processAdminRefund,
+  adminCancelShipment,
 };

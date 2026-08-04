@@ -5,7 +5,11 @@ import { User } from "../../lib/auth";
 import { sendEmail } from "../../lib/email";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 import config from "../../../config";
-import { ShipmentStatus, OfferStatus } from "../../../generated/prisma/enums";
+import {
+  ShipmentStatus,
+  OfferStatus,
+  RefundInitiator,
+} from "../../../generated/prisma/enums";
 import { OfferService } from "../offer/offer.service";
 import { NotificationService } from "../notification/notification.service";
 import { PaymentService } from "../payment/payment.service";
@@ -380,6 +384,8 @@ const cancelTrip = async (id: string, user: User) => {
       await PaymentService.markPaymentAsPendingRefund(
         shipment.id,
         `Trip (${trip.flightNumber}) canceled by traveler before pickup`,
+        RefundInitiator.TRAVELLER,
+        undefined,
         tx,
       );
 
