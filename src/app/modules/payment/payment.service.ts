@@ -8,6 +8,7 @@ import {
   OfferStatus,
   WithdrawalStatus,
   ShipmentStatus,
+  RefundInitiator,
 } from "../../../generated/prisma/enums";
 import { ShipmentStepService } from "../shipment/shipment-step.service";
 import { OfferService } from "../offer/offer.service";
@@ -309,9 +310,68 @@ const releasePayment = async (transactionId: string, adminUser: User) => {
   });
 };
 
+export interface CalculateRefundParams {
+  grossAmount: number;
+  commissionRate: number;
+  initiator: "SENDER" | "TRAVELLER" | "ADMIN";
+  customFeeType?: "COMMISSION" | "PERCENT" | "FLAT" | "NONE";
+  customFeeValue?: number;
+}
+
+export function calculateRefundAmounts(params: CalculateRefundParams): {
+  cancellationFeeAmount: number;
+  refundableAmount: number;
+} {
+  const {
+    grossAmount,
+    commissionRate,
+    initiator,
+    customFeeType,
+    customFeeValue,
+  } = params;
+
+  if (initiator === "TRAVELLER" || customFeeType === "NONE") {
+    return { cancellationFeeAmount: 0, refundableAmount: grossAmount };
+  }
+
+  if (initiator === "SENDER" || customFeeType === "COMMISSION") {
+    const fee = grossAmount * (commissionRate || 0.3);
+    return { cancellationFeeAmount: fee, refundableAmount: grossAmount - fee };
+  }
+
+  if (
+    initiator === "ADMIN" &&
+    customFeeType === "PERCENT" &&
+    customFeeValue !== undefined
+  ) {
+    const fee = grossAmount * (customFeeValue / 100);
+    return {
+      cancellationFeeAmount: fee,
+      refundableAmount: Math.max(0, grossAmount - fee),
+    };
+  }
+
+  if (
+    initiator === "ADMIN" &&
+    customFeeType === "FLAT" &&
+    customFeeValue !== undefined
+  ) {
+    const fee = Math.min(grossAmount, customFeeValue);
+    return { cancellationFeeAmount: fee, refundableAmount: grossAmount - fee };
+  }
+
+  const fee = grossAmount * (commissionRate || 0.3);
+  return { cancellationFeeAmount: fee, refundableAmount: grossAmount - fee };
+}
+
 const markPaymentAsPendingRefund = async (
   shipmentId: string,
   reason: string,
+  initiator: RefundInitiator = RefundInitiator.SENDER,
+  customFee?: {
+    feeType?: "COMMISSION" | "PERCENT" | "FLAT" | "NONE";
+    feeValue?: number;
+  },
   dbTx?: Prisma.TransactionClient,
 ) => {
   const client = dbTx || prisma;
@@ -349,11 +409,22 @@ const markPaymentAsPendingRefund = async (
         }
       : null;
 
+    const { cancellationFeeAmount, refundableAmount } = calculateRefundAmounts({
+      grossAmount: paymentTx.grossAmount,
+      commissionRate: paymentTx.commissionRate,
+      initiator: initiator as any,
+      customFeeType: customFee?.feeType,
+      customFeeValue: customFee?.feeValue,
+    });
+
     const updated = await client.paymentTransaction.update({
       where: { id: paymentTx.id },
       data: {
         status: PaymentStatus.PENDING_REFUND,
         refundReason: reason,
+        refundInitiator: initiator,
+        cancellationFeeAmount,
+        refundableAmount,
         refundMethodDetails: refundMethodDetails as any,
       },
     });
@@ -361,7 +432,7 @@ const markPaymentAsPendingRefund = async (
     await NotificationService.createNotification({
       userId: paymentTx.senderId,
       title: "Refund Pending",
-      message: `Your payment of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment?.itemName || "item"}" is pending refund. Reason: ${reason}`,
+      message: `Your payment of $${refundableAmount.toFixed(2)} for shipment "${paymentTx.shipment?.itemName || "item"}" is pending refund.${cancellationFeeAmount > 0 ? ` Cancellation fee retained: $${cancellationFeeAmount.toFixed(2)}.` : ""}`,
     });
 
     return updated;
@@ -687,6 +758,68 @@ const processAdminRefund = async (
   });
 };
 
+interface AdminCancelShipmentPayload {
+  reason: string;
+  feeType?: "COMMISSION" | "PERCENT" | "FLAT" | "NONE";
+  feeValue?: number;
+}
+
+const adminCancelShipment = async (
+  shipmentId: string,
+  payload: AdminCancelShipmentPayload,
+  adminUser: User,
+) => {
+  if (adminUser.role !== "admin") {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      "Only admins can perform admin cancellations",
+    );
+  }
+
+  const shipment = await prisma.shipment.findUnique({
+    where: { id: shipmentId },
+  });
+
+  if (!shipment) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
+  }
+
+  if (shipment.status === ShipmentStatus.CANCELED) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Shipment is already canceled");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.shipment.update({
+      where: { id: shipmentId },
+      data: { status: ShipmentStatus.CANCELED },
+    });
+
+    const updatedTx = await markPaymentAsPendingRefund(
+      shipmentId,
+      payload.reason || "Admin canceled shipment",
+      RefundInitiator.ADMIN,
+      { feeType: payload.feeType, feeValue: payload.feeValue },
+      tx,
+    );
+
+    await tx.offer.updateMany({
+      where: {
+        shipmentId,
+        status: {
+          in: [
+            OfferStatus.ACCEPTED,
+            OfferStatus.PENDING,
+            OfferStatus.PAYMENT_PENDING,
+          ],
+        },
+      },
+      data: { status: OfferStatus.EXPIRED },
+    });
+
+    return updatedTx;
+  });
+};
+
 export const PaymentService = {
   getSenderPaymentsSummary,
   getTravelerEarningsSummary,
@@ -697,4 +830,5 @@ export const PaymentService = {
   getAdminPayments,
   getPendingRefunds,
   processAdminRefund,
+  adminCancelShipment,
 };

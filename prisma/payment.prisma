@@ -14,6 +14,12 @@ enum WithdrawalStatus {
   REJECTED
 }
 
+enum RefundInitiator {
+  SENDER
+  TRAVELLER
+  ADMIN
+}
+
 enum PaymentMethodType {
   BKASH
   NAGAD
@@ -60,9 +66,12 @@ model PaymentTransaction {
   releasedAt       DateTime?
   releasedBy       String?
 
-  refundTxnId         String?
-  refundReason        String?
-  refundMethodDetails Json?
+  refundTxnId           String?
+  refundReason          String?
+  refundInitiator       RefundInitiator?
+  refundableAmount      Float            @default(0.0)
+  cancellationFeeAmount Float            @default(0.0)
+  refundMethodDetails   Json?
   refundedAt          DateTime?
   refundedBy          String?
   adminRefundNotes    String?

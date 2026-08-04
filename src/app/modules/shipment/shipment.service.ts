@@ -8,7 +8,11 @@ import z from "zod";
 import { User } from "../../lib/auth";
 import { ShipmentOtpService } from "./shipment-otp.service";
 import { notifyAvailableShipmentsCountUpdated } from "../../lib/socket";
-import { ShipmentStatus, OfferStatus } from "../../../generated/prisma/enums";
+import {
+  ShipmentStatus,
+  OfferStatus,
+  RefundInitiator,
+} from "../../../generated/prisma/enums";
 import { PaymentService } from "../payment/payment.service";
 
 const cleanupOrphanPhotos = async (oldUrls: string[], newUrls: string[]) => {
@@ -475,6 +479,8 @@ const cancelShipment = async (id: string, user: User) => {
     await PaymentService.markPaymentAsPendingRefund(
       id,
       `Shipment canceled by ${user.role === "admin" ? "admin" : "user"} before pickup`,
+      user.role === "admin" ? RefundInitiator.ADMIN : RefundInitiator.SENDER,
+      undefined,
       tx,
     );
 
