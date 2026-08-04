@@ -270,7 +270,15 @@ const releasePayment = async (transactionId: string, adminUser: User) => {
   return prisma.$transaction(async (tx) => {
     const paymentTx = await tx.paymentTransaction.findUnique({
       where: { transactionId },
-      include: { shipment: true },
+      include: {
+        shipment: {
+          include: {
+            shipmentSteps: {
+              where: { stage: "DELIVERED" },
+            },
+          },
+        },
+      },
     });
 
     if (!paymentTx) {
@@ -288,6 +296,36 @@ const releasePayment = async (transactionId: string, adminUser: User) => {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         `Cannot release payment with status ${paymentTx.status}`,
+      );
+    }
+
+    if (paymentTx.shipment.status !== ShipmentStatus.DELIVERED) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Payment can only be released after the shipment has been delivered",
+      );
+    }
+
+    const deliveredStep = paymentTx.shipment.shipmentSteps?.[0];
+    const deliveryTime = deliveredStep?.completedAt
+      ? new Date(deliveredStep.completedAt).getTime()
+      : new Date(paymentTx.shipment.updatedAt).getTime();
+
+    const HOLD_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
+    if (Date.now() - deliveryTime < HOLD_PERIOD_MS) {
+      const releaseEligibleDate = new Date(
+        deliveryTime + HOLD_PERIOD_MS,
+      ).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Payment can only be released 3 days after delivery. Release eligible on ${releaseEligibleDate}`,
       );
     }
 
@@ -798,11 +836,59 @@ const adminCancelShipment = async (
     throw new ApiError(httpStatus.BAD_REQUEST, "Shipment is already canceled");
   }
 
+  const paymentTx = await prisma.paymentTransaction.findUnique({
+    where: { shipmentId },
+  });
+
+  const grossAmount = paymentTx?.grossAmount || 0;
+  const commissionRate = paymentTx?.commissionRate || 0.3;
+  const maxCommissionPercent = Math.round(commissionRate * 100);
+  const maxCommissionAmount =
+    paymentTx?.commissionAmount && paymentTx.commissionAmount > 0
+      ? paymentTx.commissionAmount
+      : grossAmount * commissionRate;
+
+  if (payload.feeType === "PERCENT") {
+    const val = payload.feeValue ?? 0;
+    if (val < 1 || val > maxCommissionPercent) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Fee percentage must be between 1% and ${maxCommissionPercent}%`,
+      );
+    }
+  }
+
+  if (payload.feeType === "FLAT") {
+    const val = payload.feeValue ?? 0;
+    const maxFlat = Math.max(1, maxCommissionAmount);
+    if (val < 1 || val > maxFlat) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Flat fee amount must be between $1.00 and $${maxFlat.toFixed(2)}`,
+      );
+    }
+  }
+
   return prisma.$transaction(async (tx) => {
     await tx.shipment.update({
       where: { id: shipmentId },
       data: { status: ShipmentStatus.CANCELED },
     });
+
+    if (shipment.tripId && shipment.bagType) {
+      const weight = shipment.weight;
+      if (shipment.bagType === "cabin") {
+        await tx.trip.update({
+          where: { id: shipment.tripId },
+          data: { remainingCabinCapacity: { increment: weight } },
+        });
+      } else {
+        await tx.trip.update({
+          where: { id: shipment.tripId },
+          data: { remainingCheckInCapacity: { increment: weight } },
+        });
+      }
+    }
 
     const updatedTx = await markPaymentAsPendingRefund(
       shipmentId,
