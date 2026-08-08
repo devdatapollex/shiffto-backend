@@ -2,6 +2,7 @@ enum PaymentStatus {
   PENDING_PAYMENT
   ESCROWED
   PENDING_RELEASE
+  PENDING_REFUND
   RELEASED
   REFUNDED
   FAILED
@@ -11,6 +12,12 @@ enum WithdrawalStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum RefundInitiator {
+  SENDER
+  TRAVELLER
+  ADMIN
 }
 
 enum PaymentMethodType {
@@ -41,23 +48,33 @@ model PaymentMethod {
 }
 
 model PaymentTransaction {
-  id             String        @id @default(uuid(7))
-  transactionId  String        @unique
-  shipmentId     String        @unique
-  offerId        String
-  senderId       String
-  travellerId    String
-  grossAmount    Float
-  commissionRate Float         @default(0.3)
-  commissionAmount Float       @default(0.0)
-  netAmount      Float         @default(0.0)
-  currency       String        @default("USD")
-  paymentGateway String        @default("STRIPE")
-  gatewayTxnId   String?
-  status         PaymentStatus @default(PENDING_PAYMENT)
-  proofPhotoUrl  String?
-  releasedAt     DateTime?
-  releasedBy     String?
+  id               String        @id @default(uuid(7))
+  transactionId    String        @unique
+  shipmentId       String        @unique
+  offerId          String
+  senderId         String
+  travellerId      String
+  grossAmount      Float
+  commissionRate   Float         @default(0.3)
+  commissionAmount Float         @default(0.0)
+  netAmount        Float         @default(0.0)
+  currency         String        @default("USD")
+  paymentGateway   String        @default("STRIPE")
+  gatewayTxnId     String?
+  status           PaymentStatus @default(PENDING_PAYMENT)
+  proofPhotoUrl    String?
+  releasedAt       DateTime?
+  releasedBy       String?
+
+  refundTxnId           String?
+  refundReason          String?
+  refundInitiator       RefundInitiator?
+  refundableAmount      Float            @default(0.0)
+  cancellationFeeAmount Float            @default(0.0)
+  refundMethodDetails   Json?
+  refundedAt          DateTime?
+  refundedBy          String?
+  adminRefundNotes    String?
 
   shipment  Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
   offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)

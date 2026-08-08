@@ -7,6 +7,8 @@ import { z } from "zod";
 import { OfferValidation } from "./offer.validation";
 import { ShipmentStepService } from "../shipment/shipment-step.service";
 import { getPaymentAdapter } from "../payment/payment.adapter";
+import { NotificationService } from "../notification/notification.service";
+import { notifyOffersCountUpdated } from "../../lib/socket";
 
 const OFFER_EXPIRATION_MINUTES = 30;
 
@@ -25,6 +27,52 @@ const expireStaleOffers = async (shipmentId?: string) => {
       status: OfferStatus.EXPIRED,
     },
   });
+};
+
+const expireIneligibleOffersForTrip = async (
+  tripId: string,
+  tx?: any,
+) => {
+  const db = tx || prisma;
+  const trip = await db.trip.findUnique({
+    where: { id: tripId },
+  });
+
+  if (!trip) return;
+
+  const pendingOffers = await db.offer.findMany({
+    where: {
+      tripId,
+      status: { in: [OfferStatus.PENDING, OfferStatus.PAYMENT_CANCELED] },
+    },
+    include: { shipment: true },
+  });
+
+  for (const offer of pendingOffers) {
+    const weight = offer.shipment.weight;
+    let isExceeded = false;
+    if (offer.bagType === "cabin" && trip.remainingCabinCapacity < weight) {
+      isExceeded = true;
+    } else if (
+      offer.bagType === "checkIn" &&
+      trip.remainingCheckInCapacity < weight
+    ) {
+      isExceeded = true;
+    }
+
+    if (isExceeded) {
+      await db.offer.update({
+        where: { id: offer.id },
+        data: { status: OfferStatus.EXPIRED },
+      });
+
+      await NotificationService.createNotification({
+        userId: offer.shipment.userId,
+        title: "Offer Expired",
+        message: `Your received offer for shipment "${offer.shipment.itemName}" has expired because the traveler's bag capacity for this trip is full.`,
+      });
+    }
+  }
 };
 
 const createOffer = async (
@@ -193,6 +241,7 @@ const createOffer = async (
     },
   });
 
+  notifyOffersCountUpdated(shipment.userId);
   return offer;
 };
 
@@ -264,7 +313,19 @@ const getReceivedOffers = async (user: User) => {
     orderBy: { createdAt: "desc" },
   });
 
-  return offers;
+  return offers.filter((offer) => {
+    if (offer.bagType === "cabin") {
+      return offer.trip.remainingCabinCapacity >= offer.shipment.weight;
+    } else if (offer.bagType === "checkIn") {
+      return offer.trip.remainingCheckInCapacity >= offer.shipment.weight;
+    }
+    return true;
+  });
+};
+
+const getReceivedOffersCount = async (user: User) => {
+  const offers = await getReceivedOffers(user);
+  return { count: offers.length };
 };
 
 const getSentOffers = async (user: User) => {
@@ -612,12 +673,10 @@ const rejectOffer = async (offerId: string, user: User) => {
   });
 
   // Create notification for traveller that their offer was rejected
-  await prisma.notification.create({
-    data: {
-      userId: offer.travellerId,
-      title: "Offer Rejected",
-      message: `Your offer for shipment "${offer.shipment.itemName}" was declined by the sender.`,
-    },
+  await NotificationService.createNotification({
+    userId: offer.travellerId,
+    title: "Offer Rejected",
+    message: `Your offer for shipment "${offer.shipment.itemName}" was declined by the sender.`,
   });
 
   return rejectedOffer;
@@ -627,8 +686,10 @@ export const OfferService = {
   createOffer,
   getOffersForShipment,
   getReceivedOffers,
+  getReceivedOffersCount,
   getSentOffers,
   acceptOffer,
   cancelCheckout,
   rejectOffer,
+  expireIneligibleOffersForTrip,
 };

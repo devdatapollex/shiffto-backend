@@ -6,12 +6,18 @@ import {
   ShipmentStatus,
   shipmentStepStage,
 } from "../../../generated/prisma/enums";
-import { getIO } from "../../lib/socket";
+import { emitToRoom, notifyAdminCountsUpdated } from "../../lib/socket";
+import { NotificationService } from "../notification/notification.service";
 
 // 3 days in milliseconds
 const DISPUTE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 
-const getHtmlEmailTemplate = (title: string, messageHtml: string, actionText?: string, actionUrl?: string) => {
+const getHtmlEmailTemplate = (
+  title: string,
+  messageHtml: string,
+  actionText?: string,
+  actionUrl?: string,
+) => {
   return `
     <!DOCTYPE html>
     <html>
@@ -90,7 +96,7 @@ const getHtmlEmailTemplate = (title: string, messageHtml: string, actionText?: s
         <div class="content">
           <div class="greeting">${title}</div>
           <div class="message">${messageHtml}</div>
-          ${actionText && actionUrl ? `<div style="text-align: center; margin-top: 30px;"><a href="${actionUrl}" class="action-btn">${actionText}</a></div>` : ''}
+          ${actionText && actionUrl ? `<div style="text-align: center; margin-top: 30px;"><a href="${actionUrl}" class="action-btn">${actionText}</a></div>` : ""}
         </div>
         <div class="footer">
           <p>This is an automated message. Please do not reply directly to this email.</p>
@@ -150,18 +156,18 @@ const getAssociatedRecords = async (userId: string) => {
     return Date.now() - deliveryTime <= DISPUTE_WINDOW_MS;
   });
 
-  // Fetch trips associated with the user that are ACTIVE or COMPLETED
+  // Fetch trips associated with the user that are ACTIVE, IN_TRANSIT, ARRIVED or COMPLETED
   const trips = await prisma.trip.findMany({
     where: {
       userId,
-      status: { in: ["ACTIVE", "COMPLETED"] },
+      status: { in: ["ACTIVE", "IN_TRANSIT", "ARRIVED", "COMPLETED"] },
     },
     orderBy: { createdAt: "desc" },
   });
 
   // Filter trips based on the 3-day dispute window for COMPLETED ones
   const validTrips = trips.filter((trip) => {
-    if (trip.status === "ACTIVE") return true;
+    if (trip.status !== "COMPLETED") return true;
 
     const completionTime = new Date(trip.updatedAt).getTime();
     return Date.now() - completionTime <= DISPUTE_WINDOW_MS;
@@ -190,7 +196,15 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
   const { category, title, description, shipmentId, tripId, attachments } =
     data;
 
-  const validCategories = ["ORDER", "TRIP", "PAYMENT", "DELIVERY", "KYC", "TECHNICAL", "OTHER"];
+  const validCategories = [
+    "ORDER",
+    "TRIP",
+    "PAYMENT",
+    "DELIVERY",
+    "KYC",
+    "TECHNICAL",
+    "OTHER",
+  ];
   const upperCategory = category?.toUpperCase();
 
   if (!validCategories.includes(upperCategory)) {
@@ -287,10 +301,11 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
       );
     }
 
-    if (trip.status !== "ACTIVE" && trip.status !== "COMPLETED") {
+    const validStatuses = ["ACTIVE", "IN_TRANSIT", "ARRIVED", "COMPLETED"];
+    if (!validStatuses.includes(trip.status)) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "Only active or completed trips can be linked to tickets.",
+        "Only active, in-transit, arrived, or completed trips can be linked to tickets.",
       );
     }
 
@@ -306,7 +321,9 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
 
     resolvedTravelerId = trip.userId;
     const matchedShipment = trip.shipments.find((s) => s.userId === userId);
-    resolvedSenderId = matchedShipment ? userId : (trip.shipments[0]?.userId || null);
+    resolvedSenderId = matchedShipment
+      ? userId
+      : trip.shipments[0]?.userId || null;
   }
 
   if (attachments && attachments.length > 5) {
@@ -341,6 +358,25 @@ const createTicket = async (userId: string, data: CreateTicketDto) => {
     data: { ticketId: formattedTicketId },
   });
 
+  // Notify Admins of new support ticket
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: "admin", isDeactivated: false },
+      select: { id: true },
+    });
+
+    for (const adminUser of admins) {
+      await NotificationService.createNotification({
+        userId: adminUser.id,
+        title: `New Support Ticket: ${formattedTicketId}`,
+        message: `A new ticket "${title.trim()}" was created in ${upperCategory}.`,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to send admin notifications for new ticket", err);
+  }
+
+  notifyAdminCountsUpdated();
   return updatedTicket;
 };
 
@@ -353,11 +389,7 @@ const getMyTickets = async (
   const skip = (page - 1) * limit;
 
   const whereClause: any = {
-    OR: [
-      { userId },
-      { senderId: userId },
-      { travelerId: userId },
-    ],
+    OR: [{ userId }, { senderId: userId }, { travelerId: userId }],
   };
   if (status) {
     whereClause.status = status.toUpperCase();
@@ -440,11 +472,16 @@ const addComment = async (
 
   let resolvedVisibleTo = "ALL";
   if (userRole === "admin") {
-    if (visibleTo === "SENDER" || visibleTo === "TRAVELER" || visibleTo === "ALL") {
+    if (
+      visibleTo === "SENDER" ||
+      visibleTo === "TRAVELER" ||
+      visibleTo === "ALL"
+    ) {
       resolvedVisibleTo = visibleTo;
     }
   } else {
-    const isTraveler = ticket.travelerId === userId && ticket.senderId !== userId;
+    const isTraveler =
+      ticket.travelerId === userId && ticket.senderId !== userId;
     resolvedVisibleTo = isTraveler ? "TRAVELER" : "SENDER";
   }
 
@@ -486,7 +523,10 @@ const addComment = async (
     if (resolvedVisibleTo === "TRAVELER" || resolvedVisibleTo === "ALL") {
       if (ticket.travelerId) {
         notifyUserIds.push(ticket.travelerId);
-      } else if (resolvedVisibleTo === "ALL" && !notifyUserIds.includes(ticket.userId)) {
+      } else if (
+        resolvedVisibleTo === "ALL" &&
+        !notifyUserIds.includes(ticket.userId)
+      ) {
         notifyUserIds.push(ticket.userId);
       }
     }
@@ -499,13 +539,11 @@ const addComment = async (
       });
       if (!targetUser) continue;
 
-      // 1. Create in-app notification
-      await prisma.notification.create({
-        data: {
-          userId: targetUserId,
-          title: `Reply on ticket ${ticket.ticketId}`,
-          message: `Support team has replied to your ticket: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`,
-        },
+      // 1. Create in-app notification & emit real-time socket event
+      await NotificationService.createNotification({
+        userId: targetUserId,
+        title: `Reply on ticket ${ticket.ticketId}`,
+        message: `Support team has replied to your ticket: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`,
       });
 
       // 2. Send email notification
@@ -520,7 +558,7 @@ const addComment = async (
              </div>
              <p>Please log in to your dashboard to view the conversation or download any attachments.</p>`,
             "View Conversation",
-            `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+            `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`,
           );
 
           await sendEmail({
@@ -537,12 +575,41 @@ const addComment = async (
         }
       }
     }
+  } else {
+    // Notify assigned Admin (or all Admins if unassigned) when regular User comments
+    try {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+      const senderName = currentUser?.name || "A user";
+
+      const notifyAdminIds: string[] = [];
+      if (ticket.assigneeId) {
+        notifyAdminIds.push(ticket.assigneeId);
+      } else {
+        const admins = await prisma.user.findMany({
+          where: { role: "admin", isDeactivated: false },
+          select: { id: true },
+        });
+        admins.forEach((a) => notifyAdminIds.push(a.id));
+      }
+
+      for (const adminId of notifyAdminIds) {
+        await NotificationService.createNotification({
+          userId: adminId,
+          title: `User Reply on Ticket ${ticket.ticketId}`,
+          message: `${senderName} replied on ticket ${ticket.ticketId}: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to notify admins on user ticket comment", err);
+    }
   }
 
   // Socket broadcast of new comment
   try {
-    const io = getIO();
-    io.to(ticketId).emit("new-comment", comment);
+    emitToRoom(ticketId, "new-comment", comment);
   } catch (error) {
     console.error("Failed to emit new-comment socket event:", error);
   }
@@ -608,7 +675,8 @@ const getTicketDetails = async (
 
   // Filter comments based on role/privacy
   if (userRole !== "admin") {
-    const isTraveler = ticket.travelerId === userId && ticket.senderId !== userId;
+    const isTraveler =
+      ticket.travelerId === userId && ticket.senderId !== userId;
     const userRoleTag = isTraveler ? "TRAVELER" : "SENDER";
 
     ticket.comments = ticket.comments.filter((c) => {
@@ -621,7 +689,6 @@ const getTicketDetails = async (
 
   return ticket;
 };
-
 
 const closeTicket = async (userId: string, userRole: string, id: string) => {
   const ticket = await prisma.ticket.findUnique({
@@ -647,12 +714,10 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
 
   // Notify user if closed by Admin
   if (userRole === "admin") {
-    await prisma.notification.create({
-      data: {
-        userId: ticket.userId,
-        title: `Ticket Closed: ${ticket.ticketId}`,
-        message: `Your ticket "${ticket.title}" has been closed by the support team.`,
-      },
+    await NotificationService.createNotification({
+      userId: ticket.userId,
+      title: `Ticket Closed: ${ticket.ticketId}`,
+      message: `Your ticket "${ticket.title}" has been closed by the support team.`,
     });
 
     if (ticket.user?.email) {
@@ -663,7 +728,7 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
            <p>Your support ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}") has been marked as <strong>CLOSED</strong> by the support team.</p>
            <p>If you have any further questions or if you encounter any other issues, please create a new ticket in the support center.</p>`,
           "Go to Support",
-          `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+          `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`,
         );
 
         await sendEmail({
@@ -683,8 +748,11 @@ const closeTicket = async (userId: string, userRole: string, id: string) => {
 
   // Socket broadcast of status change
   try {
-    const io = getIO();
-    io.to(id).emit("ticket-status-updated", { ticketId: ticket.ticketId, id, status: "CLOSED" });
+    emitToRoom(id, "ticket-status-updated", {
+      ticketId: ticket.ticketId,
+      id,
+      status: "CLOSED",
+    });
   } catch (error) {
     console.error("Failed to emit ticket-status-updated socket event:", error);
   }
@@ -802,6 +870,17 @@ const assignTicket = async (ticketId: string, assigneeId: string) => {
     },
   });
 
+  // Notify assigned Admin
+  try {
+    await NotificationService.createNotification({
+      userId: assigneeId,
+      title: `Ticket Assigned: ${ticket.ticketId}`,
+      message: `You have been assigned to support ticket "${ticket.title}".`,
+    });
+  } catch (err) {
+    console.error("Failed to send notification on ticket assignment", err);
+  }
+
   return updatedTicket;
 };
 
@@ -837,12 +916,10 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
   });
 
   // Notify User on status change
-  await prisma.notification.create({
-    data: {
-      userId: ticket.userId,
-      title: `Ticket status updated: ${ticket.ticketId}`,
-      message: `Your ticket status is now "${upperStatus}".`,
-    },
+  await NotificationService.createNotification({
+    userId: ticket.userId,
+    title: `Ticket status updated: ${ticket.ticketId}`,
+    message: `Your ticket status is now "${upperStatus}".`,
   });
 
   if (ticket.user?.email) {
@@ -853,7 +930,7 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
          <p>The status of your support ticket <strong>${ticket.ticketId}</strong> ("${ticket.title}") has been updated to <strong>${upperStatus}</strong>.</p>
          <p>Please log in to your dashboard support center to review the status change and join the discussion.</p>`,
         "View Support Ticket",
-        `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`
+        `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard/support`,
       );
 
       await sendEmail({
@@ -872,8 +949,11 @@ const updateTicketStatus = async (ticketId: string, status: string) => {
 
   // Socket broadcast of status change
   try {
-    const io = getIO();
-    io.to(ticketId).emit("ticket-status-updated", { ticketId: ticket.ticketId, id: ticketId, status: upperStatus });
+    emitToRoom(ticketId, "ticket-status-updated", {
+      ticketId: ticket.ticketId,
+      id: ticketId,
+      status: upperStatus,
+    });
   } catch (error) {
     console.error("Failed to emit ticket-status-updated socket event:", error);
   }

@@ -26,11 +26,32 @@ router.get(
   PaymentController.getAdminPayments,
 );
 
+// Admin Pending Refunds Queue
+router.get(
+  "/admin/refunds/pending",
+  authGuard({ adminOnly: true }),
+  PaymentController.getPendingRefunds,
+);
+
+// Admin Process Manual Refund
+router.post(
+  "/admin/refunds/:transactionId/process",
+  authGuard({ adminOnly: true }),
+  PaymentController.processAdminRefund,
+);
+
 // Admin Payment Release
 router.post(
   "/:transactionId/release",
   authGuard({ adminOnly: true }),
   PaymentController.releasePayment,
+);
+
+// Admin Cancel Shipment with Custom Fee
+router.post(
+  "/admin/shipments/:id/cancel",
+  authGuard({ adminOnly: true }),
+  PaymentController.adminCancelShipment,
 );
 
 export const PaymentRoutes = router;

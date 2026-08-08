@@ -441,6 +441,7 @@ Notes:
 - Notifications skipped for now.
 - Delivery requires OTP verification: traveler calls `send-delivery-otp`, OTP sent to sender, receiver shares OTP with traveler, traveler submits with photo.
 - Shipment status transitions: AWAITING_MATCH → ACTIVE (on payment), ACTIVE → DELIVERED (on delivery).
+- Escrow payment release requires 3 days (72 hours) to elapse after delivery completion before admin can release payment.
 - Cancellation not allowed after pickup.
 
 ## OpenAPI Documentation Completion

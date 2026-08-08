@@ -13,6 +13,12 @@ router.get(
 );
 
 router.get(
+  "/sidebar-counts",
+  authGuard({ adminOnly: true }),
+  AdminController.getSidebarCounts,
+);
+
+router.get(
   "/kyc",
   authGuard({ adminOnly: true }),
   AdminController.getKycSubmissions,

@@ -4,6 +4,7 @@ import ApiError from "../../errors/ApiError";
 import { User } from "../../lib/auth";
 import { WithdrawalStatus } from "../../../generated/prisma/enums";
 import { PaymentService } from "../payment/payment.service";
+import { NotificationService } from "../notification/notification.service";
 
 export interface RequestWithdrawalPayload {
   amount?: number;
@@ -67,13 +68,11 @@ const requestWithdrawal = async (
       },
     });
 
-    // 5. Create notification
-    await tx.notification.create({
-      data: {
-        userId,
-        title: "Withdrawal Request Submitted",
-        message: `Your withdrawal request ${withdrawalNo} for $${withdrawAmount.toFixed(2)} has been submitted for admin processing.`,
-      },
+    // 5. Create notification & emit real-time socket event
+    await NotificationService.createNotification({
+      userId,
+      title: "Withdrawal Request Submitted",
+      message: `Your withdrawal request ${withdrawalNo} for $${withdrawAmount.toFixed(2)} has been submitted for admin processing.`,
     });
 
     return withdrawal;
@@ -157,12 +156,10 @@ const approveWithdrawal = async (
       },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: withdrawal.userId,
-        title: "Withdrawal Approved & Transferred",
-        message: `Your withdrawal request ${withdrawal.withdrawalNo} of $${withdrawal.amount.toFixed(2)} has been transferred! Txn Ref: ${payoutTxnId}`,
-      },
+    await NotificationService.createNotification({
+      userId: withdrawal.userId,
+      title: "Withdrawal Approved & Transferred",
+      message: `Your withdrawal request ${withdrawal.withdrawalNo} of $${withdrawal.amount.toFixed(2)} has been transferred! Txn Ref: ${payoutTxnId}`,
     });
 
     return updated;
@@ -207,12 +204,10 @@ const rejectWithdrawal = async (
       },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: withdrawal.userId,
-        title: "Withdrawal Request Rejected",
-        message: `Your withdrawal request ${withdrawal.withdrawalNo} was rejected. Reason: ${rejectionReason || "Please verify your payment details"}. Your funds have been unlocked back to your balance.`,
-      },
+    await NotificationService.createNotification({
+      userId: withdrawal.userId,
+      title: "Withdrawal Request Rejected",
+      message: `Your withdrawal request ${withdrawal.withdrawalNo} was rejected. Reason: ${rejectionReason || "Please verify your payment details"}. Your funds have been unlocked back to your balance.`,
     });
 
     return updated;

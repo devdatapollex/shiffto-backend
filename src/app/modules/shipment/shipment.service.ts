@@ -7,6 +7,13 @@ import { fileUploader } from "../../helper/fileUploader";
 import z from "zod";
 import { User } from "../../lib/auth";
 import { ShipmentOtpService } from "./shipment-otp.service";
+import { notifyAvailableShipmentsCountUpdated } from "../../lib/socket";
+import {
+  ShipmentStatus,
+  OfferStatus,
+  RefundInitiator,
+} from "../../../generated/prisma/enums";
+import { PaymentService } from "../payment/payment.service";
 
 const cleanupOrphanPhotos = async (oldUrls: string[], newUrls: string[]) => {
   const removedUrls = oldUrls.filter((url) => !newUrls.includes(url));
@@ -113,10 +120,14 @@ const createShipment = async (
       })),
     });
 
-    return tx.shipment.findUnique({
+    const createdShipment = await tx.shipment.findUnique({
       where: { id: shipment.id },
       include: { category: true },
     });
+
+    notifyAvailableShipmentsCountUpdated();
+
+    return createdShipment;
   });
 
   return result;
@@ -154,7 +165,11 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
 
   // Status filter
   if (query.status) {
-    where.status = query.status as string;
+    if (query.status === "PENDING_RELEASE") {
+      where.paymentTransaction = { status: "PENDING_RELEASE" };
+    } else {
+      where.status = query.status as string;
+    }
   }
 
   // Search across multiple fields
@@ -188,7 +203,18 @@ const getShipments = async (query: Record<string, unknown>, user: User) => {
     skip,
     take: limit,
     orderBy: { [sortField]: sortOrder },
-    include: { category: true },
+    include: {
+      category: true,
+      paymentTransaction: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
   });
 
   const total = await prisma.shipment.count({ where });
@@ -373,9 +399,10 @@ const getShipmentDetails = async (id: string, user: User) => {
         flightTime: trip.flightTime,
         airportArrivalTime: trip.airportArrivalTime,
         status: trip.status,
-        totalCapacity: trip.cabinBagCapacity + trip.checkInBagCapacity,
-        remainingCapacity:
-          trip.remainingCabinCapacity + trip.remainingCheckInCapacity,
+        cabinBagCapacity: trip.cabinBagCapacity,
+        checkInBagCapacity: trip.checkInBagCapacity,
+        remainingCabinCapacity: trip.remainingCabinCapacity,
+        remainingCheckInCapacity: trip.remainingCheckInCapacity,
         user: trip.user,
       };
     }
@@ -408,6 +435,88 @@ const getShipmentDetails = async (id: string, user: User) => {
   };
 };
 
+const cancelShipment = async (id: string, user: User) => {
+  const shipment = await prisma.shipment.findFirst({
+    where: {
+      id,
+      OR:
+        user.role === "admin"
+          ? undefined
+          : [{ userId: user.id }, { trip: { userId: user.id } }],
+    },
+    include: {
+      shipmentSteps: true,
+      paymentTransaction: true,
+    },
+  });
+
+  if (!shipment) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
+  }
+
+  if (shipment.status === ShipmentStatus.CANCELED) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Shipment is already canceled");
+  }
+
+  // Check if PICKED_UP step has been completed
+  const pickedUpStep = shipment.shipmentSteps.find(
+    (step) => step.stage === "PICKED_UP" && step.completedAt !== null,
+  );
+
+  if (pickedUpStep) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Cannot cancel shipment directly after item has been picked up. Please open a support ticket.",
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updatedShipment = await tx.shipment.update({
+      where: { id },
+      data: { status: ShipmentStatus.CANCELED },
+    });
+
+    await PaymentService.markPaymentAsPendingRefund(
+      id,
+      `Shipment canceled by ${user.role === "admin" ? "admin" : "user"} before pickup`,
+      user.role === "admin" ? RefundInitiator.ADMIN : RefundInitiator.SENDER,
+      undefined,
+      tx,
+    );
+
+    if (shipment.tripId && shipment.bagType) {
+      const weight = shipment.weight;
+      if (shipment.bagType === "cabin") {
+        await tx.trip.update({
+          where: { id: shipment.tripId },
+          data: { remainingCabinCapacity: { increment: weight } },
+        });
+      } else {
+        await tx.trip.update({
+          where: { id: shipment.tripId },
+          data: { remainingCheckInCapacity: { increment: weight } },
+        });
+      }
+    }
+
+    await tx.offer.updateMany({
+      where: {
+        shipmentId: id,
+        status: {
+          in: [
+            OfferStatus.ACCEPTED,
+            OfferStatus.PENDING,
+            OfferStatus.PAYMENT_PENDING,
+          ],
+        },
+      },
+      data: { status: OfferStatus.EXPIRED },
+    });
+
+    return updatedShipment;
+  });
+};
+
 export const ShipmentService = {
   createShipment,
   getShipments,
@@ -416,4 +525,5 @@ export const ShipmentService = {
   getShipmentSteps,
   updateShipment,
   deleteShipment,
+  cancelShipment,
 };

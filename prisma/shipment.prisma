@@ -46,6 +46,8 @@ model Shipment {
   offers             Offer[]
   tickets            Ticket[]
   paymentTransaction PaymentTransaction?
+  messages           ShipmentMessage[]
+  reviews            Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -131,3 +133,31 @@ model Offer {
   @@index([travellerId])
   @@map("offers")
 }
+
+model RestrictedItem {
+  id          String   @id @default(uuid(7))
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("restricted_items")
+}
+
+model ShipmentMessage {
+  id          String   @id @default(uuid(7))
+  shipmentId  String
+  shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User     @relation("SentShipmentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  message     String
+  attachments String[] @default([])
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([shipmentId, createdAt])
+  @@index([shipmentId, isRead])
+  @@map("shipment_messages")
+}
+

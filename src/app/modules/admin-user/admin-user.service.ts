@@ -36,7 +36,7 @@ const getAllUsers = async (query: GetUsersQuery) => {
     } else if (tab === "PENDING_KYC") {
       whereConditions.OR = [
         { status: "PENDING_KYC" },
-        { kyc: { status: "PENDING" } }
+        { kyc: { status: "PENDING" } },
       ];
     } else if (tab === "INACTIVE") {
       whereConditions.status = "ACTIVE";
@@ -82,7 +82,6 @@ const getAllUsers = async (query: GetUsersQuery) => {
         image: user.image,
         createdAt: user.createdAt,
         status: user.status,
-        trustScore: user.trustScore,
         commissionRate: user.commissionRate,
         kycStatus: user.kyc?.status || "NOT_SUBMITTED",
         activity: {
@@ -91,7 +90,7 @@ const getAllUsers = async (query: GetUsersQuery) => {
           deliveriesCompleted,
         },
       };
-    })
+    }),
   );
 
   return {
@@ -112,12 +111,14 @@ const getUserDetail = async (userId: string) => {
       reviewsReceived: {
         include: {
           reviewer: { select: { id: true, name: true, image: true } },
+          shipment: { select: { id: true, itemName: true } },
         },
         orderBy: { createdAt: "desc" },
       },
       reviewsGiven: {
         include: {
           reviewee: { select: { id: true, name: true, image: true } },
+          shipment: { select: { id: true, itemName: true } },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -134,10 +135,7 @@ const getUserDetail = async (userId: string) => {
   // Fetch transactions (payments sent as sender & payments received as traveler)
   const transactions = await prisma.paymentTransaction.findMany({
     where: {
-      OR: [
-        { senderId: userId },
-        { travellerId: userId },
-      ],
+      OR: [{ senderId: userId }, { travellerId: userId }],
     },
     include: {
       shipment: { select: { itemName: true } },
@@ -229,6 +227,15 @@ const getUserDetail = async (userId: string) => {
   // Sort timeline newest first
   timelineItems.sort((a, b) => b.date.getTime() - a.date.getTime());
 
+  const totalRatings = user.reviewsReceived.reduce(
+    (sum, rev) => sum + rev.rating,
+    0,
+  );
+  const averageRating =
+    user.reviewsReceived.length > 0
+      ? Number((totalRatings / user.reviewsReceived.length).toFixed(1))
+      : 0;
+
   return {
     profile: {
       id: user.id,
@@ -238,7 +245,7 @@ const getUserDetail = async (userId: string) => {
       image: user.image,
       createdAt: user.createdAt,
       status: user.status,
-      trustScore: user.trustScore,
+      averageRating,
       commissionRate: user.commissionRate,
       isDeactivated: user.isDeactivated,
       banned: user.banned,
@@ -252,6 +259,9 @@ const getUserDetail = async (userId: string) => {
     },
     kyc: user.kyc,
     reviews: {
+      averageRating,
+      receivedCount: user.reviewsReceived.length,
+      givenCount: user.reviewsGiven.length,
       received: user.reviewsReceived,
       given: user.reviewsGiven,
     },
@@ -269,7 +279,7 @@ const updateUser = async (
     phone?: string;
     commissionRate?: number;
     status?: string;
-  }
+  },
 ) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -283,7 +293,8 @@ const updateUser = async (
   if (data.name !== undefined) updateData.name = data.name;
   if (data.email !== undefined) updateData.email = data.email;
   if (data.phone !== undefined) updateData.phone = data.phone;
-  if (data.commissionRate !== undefined) updateData.commissionRate = Number(data.commissionRate);
+  if (data.commissionRate !== undefined)
+    updateData.commissionRate = Number(data.commissionRate);
 
   if (data.status !== undefined) {
     const statusUpper = data.status.toUpperCase();
@@ -313,7 +324,7 @@ const updateUser = async (
 
 const bulkActionUsers = async (
   userIds: string[],
-  action: "SUSPEND" | "DEACTIVATE" | "DELETE"
+  action: "SUSPEND" | "DEACTIVATE" | "DELETE",
 ) => {
   if (!userIds || userIds.length === 0) {
     throw new ApiError(httpStatus.BAD_REQUEST, "No user IDs provided.");
