@@ -208,6 +208,50 @@ const executeStepAdvancement = async (
           ...(options?.photoUrl && { proofPhotoUrl: options.photoUrl }),
         },
       });
+
+      // Auto-complete trip if all assigned shipments are delivered
+      if (shipment.tripId) {
+        const remainingUndelivered = await transactionClient.shipment.count({
+          where: {
+            tripId: shipment.tripId,
+            id: { not: shipmentId },
+            status: { not: ShipmentStatus.DELIVERED },
+          },
+        });
+        if (remainingUndelivered === 0) {
+          await transactionClient.trip.update({
+            where: { id: shipment.tripId },
+            data: { status: "COMPLETED" },
+          });
+        }
+      }
+    } else if (shipment.tripId) {
+      if (currentStep.stage === shipmentStepStage.CHECKED_IN) {
+        const trip = await transactionClient.trip.findUnique({
+          where: { id: shipment.tripId },
+        });
+        if (trip && trip.status === "ACTIVE") {
+          await transactionClient.trip.update({
+            where: { id: trip.id },
+            data: { status: "IN_TRANSIT" },
+          });
+        }
+      } else if (
+        currentStep.stage === shipmentStepStage.ARRIVED_AT_DESTINATION
+      ) {
+        const trip = await transactionClient.trip.findUnique({
+          where: { id: shipment.tripId },
+        });
+        if (
+          trip &&
+          (trip.status === "ACTIVE" || trip.status === "IN_TRANSIT")
+        ) {
+          await transactionClient.trip.update({
+            where: { id: trip.id },
+            data: { status: "ARRIVED" },
+          });
+        }
+      }
     }
 
     return transactionClient.shipmentStep.findMany({

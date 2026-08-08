@@ -44,6 +44,8 @@ router.patch(
   ShipmentController.updateShipment,
 );
 
+router.post("/:id/cancel", authGuard(), ShipmentController.cancelShipment);
+
 router.delete("/:id", authGuard(), ShipmentController.deleteShipment);
 
 export const ShipmentRoutes = router;

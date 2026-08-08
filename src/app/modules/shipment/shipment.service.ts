@@ -7,6 +7,13 @@ import { fileUploader } from "../../helper/fileUploader";
 import z from "zod";
 import { User } from "../../lib/auth";
 import { ShipmentOtpService } from "./shipment-otp.service";
+import { notifyAvailableShipmentsCountUpdated } from "../../lib/socket";
+import {
+  ShipmentStatus,
+  OfferStatus,
+  RefundInitiator,
+} from "../../../generated/prisma/enums";
+import { PaymentService } from "../payment/payment.service";
 
 const cleanupOrphanPhotos = async (oldUrls: string[], newUrls: string[]) => {
   const removedUrls = oldUrls.filter((url) => !newUrls.includes(url));
@@ -113,10 +120,14 @@ const createShipment = async (
       })),
     });
 
-    return tx.shipment.findUnique({
+    const createdShipment = await tx.shipment.findUnique({
       where: { id: shipment.id },
       include: { category: true },
     });
+
+    notifyAvailableShipmentsCountUpdated();
+
+    return createdShipment;
   });
 
   return result;
@@ -424,6 +435,88 @@ const getShipmentDetails = async (id: string, user: User) => {
   };
 };
 
+const cancelShipment = async (id: string, user: User) => {
+  const shipment = await prisma.shipment.findFirst({
+    where: {
+      id,
+      OR:
+        user.role === "admin"
+          ? undefined
+          : [{ userId: user.id }, { trip: { userId: user.id } }],
+    },
+    include: {
+      shipmentSteps: true,
+      paymentTransaction: true,
+    },
+  });
+
+  if (!shipment) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Shipment not found");
+  }
+
+  if (shipment.status === ShipmentStatus.CANCELED) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Shipment is already canceled");
+  }
+
+  // Check if PICKED_UP step has been completed
+  const pickedUpStep = shipment.shipmentSteps.find(
+    (step) => step.stage === "PICKED_UP" && step.completedAt !== null,
+  );
+
+  if (pickedUpStep) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Cannot cancel shipment directly after item has been picked up. Please open a support ticket.",
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updatedShipment = await tx.shipment.update({
+      where: { id },
+      data: { status: ShipmentStatus.CANCELED },
+    });
+
+    await PaymentService.markPaymentAsPendingRefund(
+      id,
+      `Shipment canceled by ${user.role === "admin" ? "admin" : "user"} before pickup`,
+      user.role === "admin" ? RefundInitiator.ADMIN : RefundInitiator.SENDER,
+      undefined,
+      tx,
+    );
+
+    if (shipment.tripId && shipment.bagType) {
+      const weight = shipment.weight;
+      if (shipment.bagType === "cabin") {
+        await tx.trip.update({
+          where: { id: shipment.tripId },
+          data: { remainingCabinCapacity: { increment: weight } },
+        });
+      } else {
+        await tx.trip.update({
+          where: { id: shipment.tripId },
+          data: { remainingCheckInCapacity: { increment: weight } },
+        });
+      }
+    }
+
+    await tx.offer.updateMany({
+      where: {
+        shipmentId: id,
+        status: {
+          in: [
+            OfferStatus.ACCEPTED,
+            OfferStatus.PENDING,
+            OfferStatus.PAYMENT_PENDING,
+          ],
+        },
+      },
+      data: { status: OfferStatus.EXPIRED },
+    });
+
+    return updatedShipment;
+  });
+};
+
 export const ShipmentService = {
   createShipment,
   getShipments,
@@ -432,4 +525,5 @@ export const ShipmentService = {
   getShipmentSteps,
   updateShipment,
   deleteShipment,
+  cancelShipment,
 };

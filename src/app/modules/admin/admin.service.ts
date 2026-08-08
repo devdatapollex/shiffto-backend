@@ -108,7 +108,9 @@ const getAdminAnalytics = async () => {
     pendingTripsCount,
     openTicketsCount,
     pendingWithdrawalsCount,
+    pendingRefundsCount,
     paymentAgg,
+    refundFeeAgg,
     recentKyc,
     recentTickets,
     recentPayments,
@@ -120,7 +122,7 @@ const getAdminAnalytics = async () => {
     prisma.shipment.count({ where: { status: "DELIVERED" } }),
     prisma.trip.count(),
     prisma.trip.count({
-      where: { status: { in: ["UPCOMING", "PENDING", "APPROVED"] } },
+      where: { status: { in: ["ACTIVE", "IN_TRANSIT", "ARRIVED"] } },
     }),
     prisma.trip.count({ where: { status: "COMPLETED" } }),
     prisma.kyc.count({ where: { status: "PENDING" } }),
@@ -130,9 +132,14 @@ const getAdminAnalytics = async () => {
     prisma.trip.count({ where: { status: "PENDING" } }),
     prisma.ticket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
     prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
+    prisma.paymentTransaction.count({ where: { status: "PENDING_REFUND" } }),
     prisma.paymentTransaction.aggregate({
       where: { status: { in: ["PENDING_RELEASE", "RELEASED"] } },
       _sum: { grossAmount: true, commissionAmount: true },
+    }),
+    prisma.paymentTransaction.aggregate({
+      where: { status: { in: ["PENDING_REFUND", "REFUNDED"] } },
+      _sum: { cancellationFeeAmount: true },
     }),
     prisma.kyc.findMany({
       where: { status: "PENDING" },
@@ -171,7 +178,9 @@ const getAdminAnalytics = async () => {
   ]);
 
   const totalVolume = paymentAgg._sum.grossAmount || 0;
-  const totalCommission = paymentAgg._sum.commissionAmount || 0;
+  const totalCommission =
+    (paymentAgg._sum.commissionAmount || 0) +
+    (refundFeeAgg._sum.cancellationFeeAmount || 0);
 
   const chartData = [];
   const now = new Date();
@@ -229,6 +238,7 @@ const getAdminAnalytics = async () => {
       pendingTripsCount,
       openTicketsCount,
       pendingWithdrawalsCount,
+      pendingRefundsCount,
       totalVolume,
       totalCommission,
     },
@@ -246,12 +256,14 @@ const getSidebarCounts = async () => {
     openTicketsCount,
     pendingWithdrawalsCount,
     pendingShipmentsCount,
+    pendingRefundsCount,
   ] = await Promise.all([
     prisma.kyc.count({ where: { status: "PENDING" } }),
     prisma.trip.count({ where: { status: "PENDING" } }),
     prisma.ticket.count({ where: { status: "OPEN" } }),
     prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
     prisma.paymentTransaction.count({ where: { status: "PENDING_RELEASE" } }),
+    prisma.paymentTransaction.count({ where: { status: "PENDING_REFUND" } }),
   ]);
 
   return {
@@ -260,6 +272,7 @@ const getSidebarCounts = async () => {
     openTicketsCount,
     pendingWithdrawalsCount,
     pendingShipmentsCount,
+    pendingRefundsCount,
   };
 };
 

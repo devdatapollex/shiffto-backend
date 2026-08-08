@@ -90,6 +90,11 @@ const updateTripSchema = z
         (val) =>
           val || "https://placehold.co/600x400?text=Ticket+Photo+Placeholder",
       ),
+    status: z
+      .enum(["ACTIVE", "IN_TRANSIT", "ARRIVED", "COMPLETED", "CANCELLED"], {
+        error: "Invalid status value",
+      })
+      .optional(),
   })
   .refine(
     (data) => {

@@ -38,10 +38,16 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/api/v1", router);
 
+import { getPoolStats } from "./app/lib/prisma";
+
 app.use("/api/docs", docsRouter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    dbPool: getPoolStats(),
+  });
 });
 
 app.use(globalErrorHandler);
