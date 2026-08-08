@@ -7,6 +7,8 @@ import { z } from "zod";
 import { OfferValidation } from "./offer.validation";
 import { ShipmentStepService } from "../shipment/shipment-step.service";
 import { getPaymentAdapter } from "../payment/payment.adapter";
+import { NotificationService } from "../notification/notification.service";
+import { notifyOffersCountUpdated } from "../../lib/socket";
 
 const OFFER_EXPIRATION_MINUTES = 30;
 
@@ -64,12 +66,10 @@ const expireIneligibleOffersForTrip = async (
         data: { status: OfferStatus.EXPIRED },
       });
 
-      await db.notification.create({
-        data: {
-          userId: offer.shipment.userId,
-          title: "Offer Expired",
-          message: `Your received offer for shipment "${offer.shipment.itemName}" has expired because the traveler's bag capacity for this trip is full.`,
-        },
+      await NotificationService.createNotification({
+        userId: offer.shipment.userId,
+        title: "Offer Expired",
+        message: `Your received offer for shipment "${offer.shipment.itemName}" has expired because the traveler's bag capacity for this trip is full.`,
       });
     }
   }
@@ -241,6 +241,7 @@ const createOffer = async (
     },
   });
 
+  notifyOffersCountUpdated(shipment.userId);
   return offer;
 };
 
@@ -672,12 +673,10 @@ const rejectOffer = async (offerId: string, user: User) => {
   });
 
   // Create notification for traveller that their offer was rejected
-  await prisma.notification.create({
-    data: {
-      userId: offer.travellerId,
-      title: "Offer Rejected",
-      message: `Your offer for shipment "${offer.shipment.itemName}" was declined by the sender.`,
-    },
+  await NotificationService.createNotification({
+    userId: offer.travellerId,
+    title: "Offer Rejected",
+    message: `Your offer for shipment "${offer.shipment.itemName}" was declined by the sender.`,
   });
 
   return rejectedOffer;

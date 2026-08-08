@@ -15,11 +15,14 @@ import { WithdrawalRoutes } from "../modules/withdrawal/withdrawal.routes";
 import { AdminSettingRoutes } from "../modules/admin-setting/admin-setting.routes";
 import { AdminUserRoutes } from "../modules/admin-user/admin-user.route";
 import { RestrictedItemRoutes } from "../modules/restricted-item/restricted-item.route";
+import { ShipmentMessageRoutes } from "../modules/shipment-message/shipment-message.route";
+import { ReviewRoutes } from "../modules/review/review.route";
 
 const router = express.Router();
 
 const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/shipments", route: ShipmentRoutes },
+  { path: "/shipment-messages", route: ShipmentMessageRoutes },
   { path: "/shipment-categories", route: ShipmentCategoryRoutes },
   { path: "/shipments-steps", route: StepDefinitionRoutes },
   { path: "/uploads/photos", route: UploadRoutes },
@@ -35,6 +38,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/admin/settings", route: AdminSettingRoutes },
   { path: "/admin-users", route: AdminUserRoutes },
   { path: "/restricted-items", route: RestrictedItemRoutes },
+  { path: "/reviews", route: ReviewRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

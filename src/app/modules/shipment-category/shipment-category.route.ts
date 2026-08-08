@@ -13,9 +13,9 @@ router.post(
   ShipmentCategoryController.createCategory,
 );
 
-router.get("/", authGuard(), ShipmentCategoryController.getCategories);
+router.get("/", ShipmentCategoryController.getCategories);
 
-router.get("/:id", authGuard(), ShipmentCategoryController.getCategoryById);
+router.get("/:id", ShipmentCategoryController.getCategoryById);
 
 router.patch(
   "/:id",

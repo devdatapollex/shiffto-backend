@@ -5,8 +5,15 @@ import { User } from "../../lib/auth";
 import { sendEmail } from "../../lib/email";
 import { paginationHelpers } from "../../helper/paginationHelpers";
 import config from "../../../config";
-import { ShipmentStatus } from "../../../generated/prisma/enums";
+import {
+  ShipmentStatus,
+  OfferStatus,
+  RefundInitiator,
+} from "../../../generated/prisma/enums";
 import { OfferService } from "../offer/offer.service";
+import { NotificationService } from "../notification/notification.service";
+import { PaymentService } from "../payment/payment.service";
+import { notifyAdminCountsUpdated } from "../../lib/socket";
 
 const createTrip = async (data: any, user: User) => {
   if (data.fromCountry.toLowerCase() === data.toCountry.toLowerCase()) {
@@ -39,6 +46,7 @@ const createTrip = async (data: any, user: User) => {
     },
   });
 
+  notifyAdminCountsUpdated();
   return result;
 };
 
@@ -139,7 +147,11 @@ const getTrips = async (query: Record<string, unknown>, user: User) => {
           image: true,
         },
       },
-      shipments: true,
+      shipments: {
+        include: {
+          shipmentSteps: true,
+        },
+      },
     },
   });
 
@@ -163,6 +175,7 @@ const getTripById = async (id: string, user: User) => {
       shipments: {
         include: {
           category: true,
+          shipmentSteps: true,
           user: {
             select: {
               id: true,
@@ -207,12 +220,63 @@ const updateTrip = async (id: string, data: any, user: User) => {
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
   }
 
-  // Edit allowed ONLY before accepting any shipment
-  if (trip.shipments.length > 0) {
+  const { status, ...detailFields } = data;
+  const isUpdatingDetails = Object.keys(detailFields).length > 0;
+
+  // Edit of trip details allowed ONLY before accepting any shipment
+  if (isUpdatingDetails && trip.shipments.length > 0) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       "Cannot update trip details after accepting shipments",
     );
+  }
+
+  if (status && status !== trip.status) {
+    if (status === "IN_TRANSIT") {
+      if (trip.status === "ARRIVED") {
+        const arrivedStep = await prisma.shipmentStep.findFirst({
+          where: {
+            shipment: { tripId: id },
+            stage: "ARRIVED_AT_DESTINATION",
+            completedAt: { not: null },
+          },
+        });
+        if (arrivedStep) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            "Cannot revert trip status to IN_TRANSIT after shipments have arrived at destination",
+          );
+        }
+      } else if (trip.status !== "ACTIVE") {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Only active or arrived trips can be moved to in transit",
+        );
+      }
+    } else if (status === "ARRIVED") {
+      if (trip.status !== "ACTIVE" && trip.status !== "IN_TRANSIT") {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Only active or in transit trips can be marked as arrived",
+        );
+      }
+    } else if (status === "ACTIVE") {
+      if (trip.status === "IN_TRANSIT" || trip.status === "ARRIVED") {
+        const checkedInStep = await prisma.shipmentStep.findFirst({
+          where: {
+            shipment: { tripId: id },
+            stage: "CHECKED_IN",
+            completedAt: { not: null },
+          },
+        });
+        if (checkedInStep) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            "Cannot revert trip status to ACTIVE after shipments have been checked in",
+          );
+        }
+      }
+    }
   }
 
   const finalFromCountry =
@@ -255,7 +319,10 @@ const updateTrip = async (id: string, data: any, user: User) => {
     include: { shipments: true },
   });
 
-  if (data.cabinBagCapacity !== undefined || data.checkInBagCapacity !== undefined) {
+  if (
+    data.cabinBagCapacity !== undefined ||
+    data.checkInBagCapacity !== undefined
+  ) {
     await OfferService.expireIneligibleOffersForTrip(id);
   }
 
@@ -265,7 +332,14 @@ const updateTrip = async (id: string, data: any, user: User) => {
 const cancelTrip = async (id: string, user: User) => {
   const trip = await prisma.trip.findUnique({
     where: { id },
-    include: { shipments: true },
+    include: {
+      shipments: {
+        include: {
+          shipmentSteps: true,
+          paymentTransaction: true,
+        },
+      },
+    },
   });
 
   if (!trip) {
@@ -277,20 +351,67 @@ const cancelTrip = async (id: string, user: User) => {
     throw new ApiError(httpStatus.FORBIDDEN, "Access denied");
   }
 
-  // Cancel allowed ONLY before accepting any shipment
-  if (trip.shipments.length > 0) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Cannot cancel trip after accepting shipments",
-    );
+  if (trip.status === "CANCELLED") {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Trip is already cancelled");
   }
 
-  const result = await prisma.trip.update({
-    where: { id },
-    data: { status: "CANCELLED" },
-  });
+  // Check if ANY shipment under this trip has completed the PICKED_UP step
+  for (const shipment of trip.shipments) {
+    const pickedUpStep = shipment.shipmentSteps.find(
+      (step) => step.stage === "PICKED_UP" && step.completedAt !== null,
+    );
+    if (pickedUpStep) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Cannot cancel trip directly because one or more shipments have already been picked up. Please open a support ticket.",
+      );
+    }
+  }
 
-  return result;
+  // Perform bulk cancellation inside a transaction
+  return prisma.$transaction(async (tx) => {
+    const updatedTrip = await tx.trip.update({
+      where: { id },
+      data: { status: "CANCELLED" },
+    });
+
+    for (const shipment of trip.shipments) {
+      await tx.shipment.update({
+        where: { id: shipment.id },
+        data: { status: ShipmentStatus.CANCELED },
+      });
+
+      await PaymentService.markPaymentAsPendingRefund(
+        shipment.id,
+        `Trip (${trip.flightNumber}) canceled by traveler before pickup`,
+        RefundInitiator.TRAVELLER,
+        undefined,
+        tx,
+      );
+
+      await tx.offer.updateMany({
+        where: {
+          shipmentId: shipment.id,
+          status: {
+            in: [
+              OfferStatus.ACCEPTED,
+              OfferStatus.PENDING,
+              OfferStatus.PAYMENT_PENDING,
+            ],
+          },
+        },
+        data: { status: OfferStatus.EXPIRED },
+      });
+
+      await NotificationService.createNotification({
+        userId: shipment.userId,
+        title: "Trip Canceled",
+        message: `The traveler for your shipment "${shipment.itemName}" has canceled their trip. Any held payment is now pending refund.`,
+      });
+    }
+
+    return updatedTrip;
+  });
 };
 
 const verifyTrip = async (
@@ -328,12 +449,10 @@ const verifyTrip = async (
     ? `Your flight trip from ${trip.fromCountry} to ${trip.toCountry} on ${trip.flightDate.toDateString()} has been approved and is now active.`
     : `Your flight trip from ${trip.fromCountry} to ${trip.toCountry} on ${trip.flightDate.toDateString()} was rejected. Reason: ${rejectionReason}`;
 
-  await prisma.notification.create({
-    data: {
-      userId: trip.userId,
-      title: notificationTitle,
-      message: notificationMessage,
-    },
+  await NotificationService.createNotification({
+    userId: trip.userId,
+    title: notificationTitle,
+    message: notificationMessage,
   });
 
   // Send Email Notification
@@ -452,6 +571,7 @@ const verifyTrip = async (
     console.error("Failed to send verification email:", error);
   }
 
+  notifyAdminCountsUpdated();
   return result;
 };
 
