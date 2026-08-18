@@ -49,7 +49,7 @@ export const auth = betterAuth({
     requireEmailVerification: true,
   },
   emailVerification: {
-    sendOnSignUp: false,
+    sendOnSignUp: true,
     autoSignInAfterVerification: true,
   },
   socialProviders: {
@@ -63,7 +63,7 @@ export const auth = betterAuth({
     bearer(),
     emailOTP({
       sendVerificationOTP,
-      sendVerificationOnSignUp: false,
+      sendVerificationOnSignUp: true,
       overrideDefaultEmailVerification: true,
     }),
     adminPlugin({

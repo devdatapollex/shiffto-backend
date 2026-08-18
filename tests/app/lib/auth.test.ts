@@ -69,7 +69,7 @@ describe("auth configuration", () => {
           requireEmailVerification: true,
         },
         emailVerification: {
-          sendOnSignUp: false,
+          sendOnSignUp: true,
           autoSignInAfterVerification: true,
         },
         socialProviders: {
@@ -85,7 +85,7 @@ describe("auth configuration", () => {
             id: "email-otp",
             options: {
               sendVerificationOTP: expect.any(Function),
-              sendVerificationOnSignUp: false,
+              sendVerificationOnSignUp: true,
               overrideDefaultEmailVerification: true,
             },
           },
