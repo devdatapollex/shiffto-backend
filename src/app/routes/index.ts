@@ -18,18 +18,41 @@ import { RestrictedItemRoutes } from "../modules/restricted-item/restricted-item
 import { ShipmentMessageRoutes } from "../modules/shipment-message/shipment-message.route";
 import { ReviewRoutes } from "../modules/review/review.route";
 
-import { getLatestOtp } from "../lib/email";
+import prisma from "../lib/prisma";
 
 const router = express.Router();
 
-router.get("/auth/latest-otp", (req, res) => {
-  const email = (req.query.email as string) || "";
-  const type = req.query.type as string | undefined;
-  const otp = getLatestOtp(email, type);
-  res.json({
-    success: true,
-    data: { otp },
-  });
+router.get("/auth/latest-otp", async (req, res) => {
+  try {
+    const email = ((req.query.email as string) || "").toLowerCase().trim();
+    if (!email) {
+      return res.json({ success: true, data: { otp: null } });
+    }
+
+    const record = await prisma.verification.findFirst({
+      where: {
+        identifier: {
+          contains: email,
+          mode: "insensitive",
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!record) {
+      return res.json({ success: true, data: { otp: null } });
+    }
+
+    const rawValue = record.value || "";
+    const otp = rawValue.split(":")[0];
+
+    res.json({
+      success: true,
+      data: { otp },
+    });
+  } catch {
+    res.json({ success: true, data: { otp: null } });
+  }
 });
 
 const moduleRoutes: { path: string; route: Router }[] = [
