@@ -35,7 +35,7 @@ const constantTimeEquals = (a: string, b: string): boolean => {
   return timingSafeEqual(aBuf, bBuf);
 };
 
-const generateAndSendShipmentOtp = async (email: string): Promise<void> => {
+const generateAndSendShipmentOtp = async (email: string): Promise<string> => {
   const identifier = buildIdentifier(email);
   const otp = generateOtpCode();
 
@@ -54,6 +54,8 @@ const generateAndSendShipmentOtp = async (email: string): Promise<void> => {
     otp,
     type: "shipment-verification",
   });
+
+  return otp;
 };
 
 const verifyShipmentOtp = async (

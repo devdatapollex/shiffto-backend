@@ -19,27 +19,6 @@ export const auth = betterAuth({
   advanced: {
     disableOriginCheck: true, // set false for production
   },
-  hooks: {
-    before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path === "/sign-up/email") {
-        const email = (ctx.body as { email?: string })?.email
-          ?.toLowerCase()
-          .trim();
-        if (email) {
-          const existingUser = await prisma.user.findFirst({
-            where: {
-              email: { equals: email, mode: "insensitive" },
-            },
-          });
-          if (existingUser) {
-            throw new APIError("BAD_REQUEST", {
-              message: "User with this email already exists",
-            });
-          }
-        }
-      }
-    }),
-  },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),

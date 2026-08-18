@@ -18,7 +18,19 @@ import { RestrictedItemRoutes } from "../modules/restricted-item/restricted-item
 import { ShipmentMessageRoutes } from "../modules/shipment-message/shipment-message.route";
 import { ReviewRoutes } from "../modules/review/review.route";
 
+import { getLatestOtp } from "../lib/email";
+
 const router = express.Router();
+
+router.get("/auth/latest-otp", (req, res) => {
+  const email = (req.query.email as string) || "";
+  const type = req.query.type as string | undefined;
+  const otp = getLatestOtp(email, type);
+  res.json({
+    success: true,
+    data: { otp },
+  });
+});
 
 const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/shipments", route: ShipmentRoutes },
