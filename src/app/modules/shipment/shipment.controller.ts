@@ -16,13 +16,15 @@ const createShipment = catchAsync(async (req: Request, res: Response) => {
 });
 
 const sendShipmentOtp = catchAsync(async (req: Request, res: Response) => {
-  await ShipmentOtpService.generateAndSendShipmentOtp(req.user!.email);
+  const otp = await ShipmentOtpService.generateAndSendShipmentOtp(
+    req.user!.email,
+  );
 
   sendResponse(res, {
     statusCode: 200,
     success: true,
-    message: "Verification code sent to your email",
-    data: null,
+    message: `Verification code sent to your email (OTP: ${otp})`,
+    data: { otp },
   });
 });
 
