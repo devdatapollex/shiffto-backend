@@ -32,7 +32,7 @@ export const createConfig = (env: EnvInput) => {
       port: Number(env.SMTP_PORT ?? 587),
       user: env.SMTP_USER ?? "",
       pass: env.SMTP_PASS ?? "",
-      from: env.SMTP_FROM ?? "",
+      from: env.SMTP_FROM ?? env.EMAIL_FROM ?? "",
     },
     r2: {
       account_id: env.CLOUDFLARE_ACCOUNT_ID ?? "",
