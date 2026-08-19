@@ -93,18 +93,20 @@ const getTravelerEarningsSummary = async (userId: string) => {
     }
   });
 
-  // Fetch sender refunded transactions for this user
-  const refundedSenderTransactions = await prisma.paymentTransaction.findMany({
+  // Fetch all refunded transactions for this user (sender or traveler)
+  const refundedTransactions = await prisma.paymentTransaction.findMany({
     where: {
-      senderId: userId,
+      OR: [{ senderId: userId }, { travellerId: userId }],
       status: PaymentStatus.REFUNDED,
     },
   });
 
   let totalSenderRefunded = 0;
-  refundedSenderTransactions.forEach((tx) => {
-    totalSenderRefunded +=
-      tx.refundableAmount > 0 ? tx.refundableAmount : tx.grossAmount;
+  refundedTransactions.forEach((tx) => {
+    if (tx.senderId === userId) {
+      totalSenderRefunded +=
+        tx.refundableAmount > 0 ? tx.refundableAmount : tx.grossAmount;
+    }
   });
 
   // Fetch withdrawal requests by user
