@@ -93,7 +93,23 @@ const getTravelerEarningsSummary = async (userId: string) => {
     }
   });
 
-  // Fetch withdrawal requests by traveler
+  // Fetch all refunded transactions for this user (sender or traveler)
+  const refundedTransactions = await prisma.paymentTransaction.findMany({
+    where: {
+      OR: [{ senderId: userId }, { travellerId: userId }],
+      status: PaymentStatus.REFUNDED,
+    },
+  });
+
+  let totalSenderRefunded = 0;
+  refundedTransactions.forEach((tx) => {
+    if (tx.senderId === userId) {
+      totalSenderRefunded +=
+        tx.refundableAmount > 0 ? tx.refundableAmount : tx.grossAmount;
+    }
+  });
+
+  // Fetch withdrawal requests by user
   const withdrawalRequests = await prisma.withdrawalRequest.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
@@ -112,7 +128,7 @@ const getTravelerEarningsSummary = async (userId: string) => {
 
   const availableForWithdrawal = Math.max(
     0,
-    totalEarnings - totalWithdrawn - awaitingPayout,
+    totalEarnings + totalSenderRefunded - totalWithdrawn - awaitingPayout,
   );
 
   return {
@@ -777,17 +793,27 @@ const processAdminRefund = async (
       throw new ApiError(httpStatus.BAD_REQUEST, "Payment is already refunded");
     }
 
-    if (paymentTx.status !== PaymentStatus.PENDING_REFUND) {
+    if (
+      paymentTx.status !== PaymentStatus.PENDING_REFUND &&
+      paymentTx.status !== PaymentStatus.ESCROWED &&
+      paymentTx.status !== PaymentStatus.PENDING_RELEASE
+    ) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         `Cannot process refund for transaction with status ${paymentTx.status}`,
       );
     }
 
+    const finalRefundableAmount =
+      paymentTx.refundableAmount > 0
+        ? paymentTx.refundableAmount
+        : paymentTx.grossAmount;
+
     const updated = await tx.paymentTransaction.update({
       where: { id: paymentTx.id },
       data: {
         status: PaymentStatus.REFUNDED,
+        refundableAmount: finalRefundableAmount,
         refundTxnId: payload.refundTxnId,
         adminRefundNotes: payload.adminNotes,
         ...(payload.proofPhotoUrl && { proofPhotoUrl: payload.proofPhotoUrl }),
@@ -799,7 +825,7 @@ const processAdminRefund = async (
     await NotificationService.createNotification({
       userId: paymentTx.senderId,
       title: "Refund Processed",
-      message: `Your refund of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment?.itemName || "item"}" has been processed. Reference ID: ${payload.refundTxnId}`,
+      message: `Your refund of $${finalRefundableAmount.toFixed(2)} for shipment "${paymentTx.shipment?.itemName || "item"}" has been processed. Reference ID: ${payload.refundTxnId}`,
     });
 
     return updated;

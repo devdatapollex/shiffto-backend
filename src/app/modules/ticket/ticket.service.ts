@@ -434,8 +434,11 @@ const addComment = async (
   attachments?: string[],
   visibleTo?: string,
 ) => {
-  if (!message?.trim()) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Message cannot be empty.");
+  if (!message?.trim() && (!attachments || attachments.length === 0)) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Message or attachment is required.",
+    );
   }
 
   const ticket = await prisma.ticket.findUnique({
@@ -463,13 +466,6 @@ const addComment = async (
     );
   }
 
-  if (userRole !== "admin" && attachments && attachments.length > 0) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Users cannot add attachments in comments.",
-    );
-  }
-
   let resolvedVisibleTo = "ALL";
   if (userRole === "admin") {
     if (
@@ -489,7 +485,7 @@ const addComment = async (
     data: {
       ticketId,
       userId,
-      message: message.trim(),
+      message: message?.trim() || "Attached file(s)",
       attachments: attachments || [],
       visibleTo: resolvedVisibleTo,
     },
@@ -638,6 +634,18 @@ const getTicketDetails = async (
           status: true,
           fromCountry: true,
           toCountry: true,
+          paymentTransaction: {
+            select: {
+              id: true,
+              transactionId: true,
+              grossAmount: true,
+              refundableAmount: true,
+              cancellationFeeAmount: true,
+              status: true,
+              refundTxnId: true,
+              adminRefundNotes: true,
+            },
+          },
         },
       },
       trip: {
