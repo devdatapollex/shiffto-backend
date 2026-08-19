@@ -777,17 +777,27 @@ const processAdminRefund = async (
       throw new ApiError(httpStatus.BAD_REQUEST, "Payment is already refunded");
     }
 
-    if (paymentTx.status !== PaymentStatus.PENDING_REFUND) {
+    if (
+      paymentTx.status !== PaymentStatus.PENDING_REFUND &&
+      paymentTx.status !== PaymentStatus.ESCROWED &&
+      paymentTx.status !== PaymentStatus.PENDING_RELEASE
+    ) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         `Cannot process refund for transaction with status ${paymentTx.status}`,
       );
     }
 
+    const finalRefundableAmount =
+      paymentTx.refundableAmount > 0
+        ? paymentTx.refundableAmount
+        : paymentTx.grossAmount;
+
     const updated = await tx.paymentTransaction.update({
       where: { id: paymentTx.id },
       data: {
         status: PaymentStatus.REFUNDED,
+        refundableAmount: finalRefundableAmount,
         refundTxnId: payload.refundTxnId,
         adminRefundNotes: payload.adminNotes,
         ...(payload.proofPhotoUrl && { proofPhotoUrl: payload.proofPhotoUrl }),
@@ -799,7 +809,7 @@ const processAdminRefund = async (
     await NotificationService.createNotification({
       userId: paymentTx.senderId,
       title: "Refund Processed",
-      message: `Your refund of $${paymentTx.grossAmount} for shipment "${paymentTx.shipment?.itemName || "item"}" has been processed. Reference ID: ${payload.refundTxnId}`,
+      message: `Your refund of $${finalRefundableAmount.toFixed(2)} for shipment "${paymentTx.shipment?.itemName || "item"}" has been processed. Reference ID: ${payload.refundTxnId}`,
     });
 
     return updated;

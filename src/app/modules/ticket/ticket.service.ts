@@ -634,6 +634,18 @@ const getTicketDetails = async (
           status: true,
           fromCountry: true,
           toCountry: true,
+          paymentTransaction: {
+            select: {
+              id: true,
+              transactionId: true,
+              grossAmount: true,
+              refundableAmount: true,
+              cancellationFeeAmount: true,
+              status: true,
+              refundTxnId: true,
+              adminRefundNotes: true,
+            },
+          },
         },
       },
       trip: {
