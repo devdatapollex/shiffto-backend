@@ -24,6 +24,7 @@ export const createConfig = (env: EnvInput) => {
     node_env: env.NODE_ENV ?? "development",
     port,
     database_url: env.DATABASE_URL,
+    server_url: env.SERVER_URL ?? env.BACKEND_URL ?? `http://localhost:${port}`,
     frontend_url: env.FRONTEND_URL ?? "http://localhost:3000",
     mobile_app_url: env.MOBILE_APP_URL ?? "myapp://auth",
     smtp: {

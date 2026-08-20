@@ -35,8 +35,8 @@ async function saveFileLocally(
   const filePath = path.join(uploadsDir, filename);
   await fs.promises.writeFile(filePath, file.buffer);
 
-  const port = config.port || 5000;
-  const url = `http://localhost:${port}/uploads/${filename}`;
+  const baseUrl = config.server_url.replace(/\/$/, "");
+  const url = `${baseUrl}/uploads/${filename}`;
   return { key: filename, url };
 }
 
@@ -62,8 +62,8 @@ export const fileUploader = {
 
   getPrivateUrl: async (key: string, expiresIn?: number) => {
     if (!isR2Configured) {
-      const port = config.port || 5000;
-      return `http://localhost:${port}/uploads/${key}`;
+      const baseUrl = config.server_url.replace(/\/$/, "");
+      return `${baseUrl}/uploads/${key}`;
     }
     return getPresignedUrl(key, expiresIn);
   },
